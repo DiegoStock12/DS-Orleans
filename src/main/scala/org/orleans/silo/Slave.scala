@@ -49,18 +49,6 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     slaveThread.start()
   }
 
-  def stop(): Unit = {
-    if (!running) return
-    logger.info(f"Now stopping slave with id: $uuid.")
-
-    // clean-up here
-
-    // cancel itself
-    this.packetManager.cancel()
-    this.running = false
-    logger.info("Slave exited.")
-  }
-
   def run(): Unit = {
     var oldTime: Long = System.currentTimeMillis()
 
@@ -136,6 +124,22 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       s"Successfully connected to the master with uuid: ${masterInfo.uuid}.")
   }
 
+  /**
+    * Stopping the slave.
+    * Returns if it isn't running.
+    */
+  def stop(): Unit = {
+    if (!running) return
+    logger.info(f"Now stopping slave with id: $uuid.")
+
+    // clean-up here
+
+    // cancel itself
+    this.packetManager.cancel()
+    this.running = false
+    logger.info("Slave exited.")
+  }
+
   override def onReceive(
       packet: Packet,
       host: String,
@@ -143,7 +147,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
   ): Unit = packet.packetType match {
     case PacketType.WELCOME   => processWelcome(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => // Shutdown here
+    case PacketType.SHUTDOWN  => // TODO: SHUTDOWN HERE
     case _                    => logger.error(s"Did not expect this packet: $packet.")
 
   }

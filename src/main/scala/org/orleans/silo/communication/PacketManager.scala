@@ -13,26 +13,42 @@ import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType}
 import org.orleans.silo.communication.{ConnectionProtocol => protocol}
 
+/**
+  * This class takes care of both receiving and sending UDP packets.
+  * Packets are received on event-driven.
+  */
 class PacketManager(listener: PacketListener, port: Int)
     extends Runnable
     with LazyLogging {
 
+  // Socket on which packets are received/send.
   val socket: DatagramSocket = new DatagramSocket(port)
 
   @volatile
-  private var running: Boolean = true
+  var running: Boolean = true
+  val SLEEP_TIME: Int = 100
 
+  /**
+    * Initializes packetmanager, by starting it on its own thread.
+    * @param id the (short)-id of its master/slave. This is easy for debugging.
+    */
   def init(id: String = UUID.randomUUID().toString.split("-")(0)) = {
     val packetThread = new Thread(this)
     packetThread.setName(s"packetmgr-$id")
     packetThread.start()
   }
 
+  /**
+    * Runs the packetmanager loop which receives all packets and forwards it to a listener.
+    */
   def run(): Unit = {
     while (running) {
+      // The UDP packet we are expecting.
       val bytes = new Array[Byte](protocol.maxBuffer)
       val packet: DatagramPacket = new DatagramPacket(bytes, bytes.length)
 
+      // Try to receive it.
+      // Socket might be closed (due to a master/slave shutting down), this will throw the SocketException.
       try {
         socket.receive(packet)
       } catch {
@@ -45,6 +61,7 @@ class PacketManager(listener: PacketListener, port: Int)
         }
       }
 
+      // If we receive a packet, we parse it. Otherwise we will log an error.
       val parsedPacket = protocol
         .toPacket(packet.getData)
         .getOrElse({
@@ -53,13 +70,22 @@ class PacketManager(listener: PacketListener, port: Int)
           return
         })
 
+      // When a packet is received, we trigger the correct event.
       listener.onReceive(parsedPacket,
                          packet.getAddress.getHostAddress,
                          packet.getPort)
-      Thread.sleep(100)
+
+      // Now we sleep for a bit.
+      Thread.sleep(SLEEP_TIME)
     }
   }
 
+  /**
+    * Send an UDP packet.
+    * @param packet the packet to send.
+    * @param host the host to send to.
+    * @param port the port to send to.
+    */
   def send(packet: Packet, host: String, port: Int) = {
     val packetBytes: Array[Byte] =
       protocol.fromPacket(packet).getBytes(StandardCharsets.UTF_8)
@@ -70,7 +96,12 @@ class PacketManager(listener: PacketListener, port: Int)
                          new InetSocketAddress(host, port)))
   }
 
+  /**
+    * Will stop the control loop and close the DatagramSocket.
+    * Returns if it isn't running.
+    */
   def cancel(): Unit = {
+    if (!this.running) return
     this.running = false
     socket.close()
   }

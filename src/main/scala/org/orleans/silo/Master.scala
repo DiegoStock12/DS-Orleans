@@ -16,25 +16,34 @@ import org.orleans.silo.communication.ConnectionProtocol.{
   SlaveInfo
 }
 
+/**
+  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
+  * @param host the host of this server.
+  * @param udpPort the UDP port for low-level communication.
+  */
 class Master(host: String, udpPort: Int = 161)
     extends LazyLogging
     with Runnable
     with PacketListener {
 
-  // Metadata from the master
+  // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
   val shortId: String = uuid.split('-')(0)
 
   @volatile
   var running: Boolean = false
+  val SLEEP_TIME: Int = 100
 
-  // Hash table of other slaves
+  // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
+  // Packetmanager which send packets and receives packets (event-driven).
   val packetManager: PacketManager = new PacketManager(this, udpPort)
 
   /**
-    * Gets invoked when a master is started.
+    * Starts the master.
+    * - Creates a main control loop to keep track of slaves and send heartbeats.
+    * - Creates a packet-manager which handles incoming and outgoing packets.
     */
   def start() = {
     logger.info(f"Now starting master with id: $uuid.")
@@ -49,6 +58,7 @@ class Master(host: String, udpPort: Int = 161)
     masterThread.start()
   }
 
+  /** Control loop. */
   def run(): Unit = {
     var oldTime: Long = System.currentTimeMillis()
 
@@ -72,13 +82,40 @@ class Master(host: String, udpPort: Int = 161)
 
       // TODO: HERE SOME LOGIC TO CHECK IF SLAVES ARE STILL ALIVE
 
-      // Now we sleep again for 100ms.
-      Thread.sleep(100)
+      // Now time to sleep :)
+      Thread.sleep(SLEEP_TIME)
     }
   }
 
+  /**
+    * Event-driven method which is triggered when a packet is received.
+    * Forwards the packet to the correct handler.
+    * @param packet the received packet.
+    * @param host the host receiving from.
+    * @param port the port receiving from.
+    */
+  override def onReceive(
+      packet: Packet,
+      host: String,
+      port: Int
+  ): Unit = packet.packetType match {
+    case PacketType.HANDSHAKE => processHandshake(packet, host, port)
+    case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
+    case _                    => logger.warn(s"Did not expect this packet: $packet.")
+  }
+
+  /**
+    * Processes a handshake.
+    * 1) If the slave is already in the cluster, we ignore this packet.
+    * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
+    * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
+    *
+    * @param packet The handshake packet.
+    * @param host The host receiving from.
+    * @param port The port receiving from.
+    */
   def processHandshake(packet: Packet, host: String, port: Int): Unit = {
-    // If slave is already in the quorum, we will not send another welcome packet. Its probably already received.
+    // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
     if (slaves.contains(packet.uuid)) return
     logger.debug(s"Adding new slave to the cluster.")
 
@@ -94,6 +131,17 @@ class Master(host: String, udpPort: Int = 161)
     logger.debug(s"Slave with ${slaveInfo.uuid} is added to the cluster.")
   }
 
+  /**
+    * Processes a heartbeat.
+    * 1). If the slave is unknown, we ignore this packet.
+    *   - It might be that it got rid of this slave because it thought the slave was dead.
+    *     After some time, the slave will also consider the master dead and tries to reconnect.
+    * 2) Slave information gets updated with the latest heartbeat, so that we know its alive :)
+    *
+    * @param packet The handshake packet.
+    * @param host The host receiving from.
+    * @param port The port receiving from.
+    */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
     if (slaves.contains(packet.uuid)) {
       logger.debug(
@@ -109,16 +157,10 @@ class Master(host: String, udpPort: Int = 161)
     slaves.put(packet.uuid, slaveInfo)
   }
 
-  override def onReceive(
-      packet: Packet,
-      host: String,
-      port: Int
-  ): Unit = packet.packetType match {
-    case PacketType.HANDSHAKE => processHandshake(packet, host, port)
-    case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case _                    => logger.error(s"Did not expect this packet: $packet.")
-  }
-
+  /**
+    * Stopping the master.
+    * Returns if it isn't running.
+    */
   def stop(): Unit = {
     if (!running) return
     logger.info(f"Now stopping master with id: $uuid.")
@@ -126,9 +168,9 @@ class Master(host: String, udpPort: Int = 161)
     // shutdown slaves here
     logger.info("Trying to shutdown the slaves.")
 
-    // clean-up here
+    // TODO Clean-up here.
 
-    // cancel itself
+    // Cancel packet manager and control thread.
     this.packetManager.cancel()
     this.running = false
     logger.info("Master exited.")
