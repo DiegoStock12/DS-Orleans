@@ -3,17 +3,20 @@ package org.orleans.silo
 import java.util.logging.Logger
 
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.grainSearch.{GrainSearchGrpc, SearchRequest, SearchResult}
+import org.orleans.silo.grainSearch.GrainSearchGrpc
+
+import scala.concurrent.ExecutionContext
+import org.orleans.silo.Services.{ActivateGrainImpl, GrainSearchImpl}
+import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
+import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
 
 
 object Master  {
   // logger for the classes
   private val logger = Logger.getLogger(classOf[Master].getName)
   private val port = 50050
-  private val address = "10.100.9.99"
 
    def start(): Unit = {
     val server = new Master(ExecutionContext.global)
@@ -22,14 +25,13 @@ object Master  {
   }
 }
 
-private case class SlaveDetails(address: String, port: Int)
-
-class Master(executionContext: ExecutionContext) {
+//TODO I think we should run gRPC server for receiving request in other thread.
+class Master(executionContext: ExecutionContext) extends Runnable{
   // For now just define it as a gRPC endpoint
   self =>
-  private[this] var server: Server = null
+  private[this] var master: Server = null
   // Hashmap to save the grain references
-  private val grainMap: mutable.HashMap[String, SlaveDetails] = mutable.HashMap[String, SlaveDetails]()
+  private val grainMap: mutable.HashMap[String, GrainDescriptor] = mutable.HashMap[String, GrainDescriptor]()
   // Add a default object
 
 
@@ -37,8 +39,10 @@ class Master(executionContext: ExecutionContext) {
    * Start the gRPC server for GrainLookup
    */
   private def start(): Unit = {
-    grainMap += "User" -> new SlaveDetails("10.100.5.6", 5640)
-    server = ServerBuilder.forPort(Master.port).addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap), executionContext)).build.start
+    grainMap += "User" -> GrainDescriptor(GrainState.Activating, SlaveDetails("10.100.5.6", 5640))
+    master = ServerBuilder.forPort(Master.port).addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap), executionContext))
+      .addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl, executionContext)).build.start
+
     Master.logger.info("Master server started, listening on port " + Master.port)
     sys.addShutdownHook {
       System.err.println("*** shutting down gRPC server since JVM is shutting down")
@@ -48,36 +52,18 @@ class Master(executionContext: ExecutionContext) {
   }
 
   def stop(): Unit = {
-    if (server != null) {
-      server.shutdown()
+    if (master != null) {
+      master.shutdown()
     }
   }
 
   private def blockUntilShutdown(): Unit = {
-    if (server != null) {
-      server.awaitTermination()
+    if (master != null) {
+      master.awaitTermination()
     }
   }
 
-}
-
-private class GrainSearchImpl(val grainMap: mutable.HashMap[String, SlaveDetails]) extends GrainSearchGrpc.GrainSearch {
-
-  print("Created the class with the map ")
-  grainMap.foreach(println)
-
-  override def searchGrain(request: SearchRequest): Future[SearchResult] = {
-    val gtype = request.grainType
-    println("Client is looking for grain type " + gtype)
-    if (grainMap.contains(gtype)) {
-      println("Grain exists in the HashMap, returning success")
-      // Get the details from the server and send the reply
-      val slaveDetails: SlaveDetails = grainMap(gtype)
-      val reply = SearchResult(serverAddress = slaveDetails.address, serverPort = slaveDetails.port)
-      Future.successful(reply)
-    } else {
-      println("Grain doesn't exists in the HashMap, returning failure")
-      Future.failed(new Exception("Non existant grain Type"))
-    }
+  def run {
+    // Code here
   }
 }

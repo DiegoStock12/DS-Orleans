@@ -59,11 +59,9 @@ class HelloWorldClient private(
       println("After oncomplete")
       Thread.sleep(10000)
     }
-    catch{
+    catch {
       case e: StatusRuntimeException =>
         logger.log(Level.WARNING, "RPC failed: {}", e.getStatus)
     }
   }
-
-
 }

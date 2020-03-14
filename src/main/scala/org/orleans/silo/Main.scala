@@ -5,7 +5,7 @@ import scala.concurrent.ExecutionContext
 object Main {
   def main(args: Array[String]): Unit = {
 
-    if (args(0) == "master") {
+    if (true) {
       Master.start()
 
     } else if (args(0) == "slave") {
