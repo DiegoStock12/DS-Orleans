@@ -1,7 +1,8 @@
-package main.scala.org.orleans.silo
+package org.orleans.silo
+
+
 
 class Master {
 
-  // Hash table of other slaves
 
 }
