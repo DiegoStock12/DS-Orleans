@@ -44,7 +44,7 @@ class PacketManager(listener: PacketListener, port: Int)
   def run(): Unit = {
     while (running) {
       // The UDP packet we are expecting.
-      val bytes = new Array[Byte](protocol.maxBuffer)
+      val bytes = new Array[Byte](protocol.maxPacketBuffer)
       val packet: DatagramPacket = new DatagramPacket(bytes, bytes.length)
 
       // Try to receive it.

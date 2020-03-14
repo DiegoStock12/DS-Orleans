@@ -1,5 +1,5 @@
 ### Server communication
 Packets are sent in the form:
 ```bash
-type,uuid,timestamp,metadata1,metadata2....
+type,uuid,timestamp
 ```

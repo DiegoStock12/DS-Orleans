@@ -101,6 +101,7 @@ class Master(host: String, udpPort: Int = 161)
   ): Unit = packet.packetType match {
     case PacketType.HANDSHAKE => processHandshake(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
+    case PacketType.SHUTDOWN  => //TODO Implement shutdown of slave.
     case _                    => logger.warn(s"Did not expect this packet: $packet.")
   }
 
@@ -136,9 +137,9 @@ class Master(host: String, udpPort: Int = 161)
     * 1). If the slave is unknown, we ignore this packet.
     *   - It might be that it got rid of this slave because it thought the slave was dead.
     *     After some time, the slave will also consider the master dead and tries to reconnect.
-    * 2) Slave information gets updated with the latest heartbeat, so that we know its alive :)
+    * 2) Slave information gets updated with the latest heartbeat, so that we know its alive.
     *
-    * @param packet The handshake packet.
+    * @param packet The heartbeat packet.
     * @param host The host receiving from.
     * @param port The port receiving from.
     */

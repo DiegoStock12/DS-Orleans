@@ -16,7 +16,7 @@ object ConnectionProtocol {
 
   // Data we keep track of in our master and slaves.
   case class MasterConfig(host: String, udpPort: Int)
-  case class MasterInfo(uuid: String, lastHeartbeat: Long, config: MasterConfig)
+  case class MasterInfo(uuid: String, lastHeartbeat: Long)
   case class SlaveInfo(uuid: String,
                        host: String,
                        port: Int,
@@ -36,6 +36,9 @@ object ConnectionProtocol {
 
   // Separator for packet fields.
   val packetSeparator: Char = ','
+
+  // Max byte buffer of a packet.
+  val maxPacketBuffer: Int = 1024
 
   // Simple structure to keep packet data.
   case class Packet(packetType: String, uuid: String, timestamp: Long)
