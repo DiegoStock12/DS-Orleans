@@ -46,6 +46,7 @@ class HelloWorldClient private(
   def greet(name: String): Unit = {
     logger.info("Will try to greet " + name + "...")
     val request = HelloRequest(name = name)
+    print(request)
     try{
       // Async test
       println("Before oncomplete")

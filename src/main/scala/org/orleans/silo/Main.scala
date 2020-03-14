@@ -1,17 +1,15 @@
 package org.orleans.silo
 
-object Main {
+import scala.concurrent.ExecutionContext
 
+object Main {
   def main(args: Array[String]): Unit = {
 
     if (args(0) == "master") {
-      println("Hey master")
-
-
+      Master.start()
 
     } else if (args(0) == "slave") {
       val master_ip = args(1)
     }
   }
-
 }

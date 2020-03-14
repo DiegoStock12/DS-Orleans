@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package org.orleans.silo;
+
+// Grain search
+service GrainSearch {
+    rpc SearchGrain (SearchRequest) returns (SearchResult) {
+    }
+}
+
+// Message sent by the client asking the master
+// about the server which contains that grain
+message SearchRequest {
+    string grainType = 1;
+    string grainID = 2;
+}
+
+// Message sent by the master indicating
+// which server to ask for.
+// It returns server IP address and port
+message SearchResult {
+    string serverAddress = 1;
+    int32 serverPort = 2;
+}
+
+
+

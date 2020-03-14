@@ -49,6 +49,7 @@ class HelloWorldServer(executionContext: ExecutionContext) {
 
 private class GreeterImpl extends GreeterGrpc.Greeter{
   override def sayHello(request: HelloRequest): Future[HelloReply] = {
+    println("Received a request by "+request.name)
     val reply = HelloReply(message = "Hello "+request.name)
     Future.successful(reply)
   }

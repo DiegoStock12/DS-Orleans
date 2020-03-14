@@ -2,14 +2,15 @@ syntax = "proto3";
 
 package org.orleans.silo;
 
-service Greeter{
-    rpc SayHello (HelloRequest) returns (HelloReply) {}
+service Greeter {
+    rpc SayHello (HelloRequest) returns (HelloReply) {
+    }
 }
 
-message HelloRequest{
-    string name =1;
+message HelloRequest {
+    string name = 1;
 }
 
-message HelloReply{
+message HelloReply {
     string message = 1;
 }
