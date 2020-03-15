@@ -1,6 +1,4 @@
 package main.scala.org.orleans.silo
-import java.net.{DatagramPacket, DatagramSocket, InetSocketAddress}
-import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
@@ -197,6 +195,14 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       masterInfo.copy(lastHeartbeat = System.currentTimeMillis())
   }
 
+  /**
+    * Processes connection of a new slave.
+    * 1). Add slave to local table (if not already there).
+    *
+    * @param packet the connect packet.
+    * @param host the host receiving from.
+    * @param port the port receiving from.
+    */
   def processSlaveConnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is already in the cluster, we will not add it again.
     if (slaves.contains(packet.uuid)) return
@@ -208,6 +214,14 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       s"Added new slave ${protocol.shortUUID(packet.uuid)} to local hashtable.")
   }
 
+  /**
+    * Processes disconnect of a new slave.
+    * 1). Remove slave from local table (if there).
+    *
+    * @param packet the disconnect packet.
+    * @param host the host receiving from.
+    * @param port the port receiving from.
+    */
   def processSlaveDisconnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is not in the cluster, we will ignore this packet.
     if (!slaves.contains(packet.uuid)) return

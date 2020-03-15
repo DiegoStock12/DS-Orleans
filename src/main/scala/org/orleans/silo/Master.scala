@@ -1,8 +1,5 @@
 package main.scala.org.orleans.silo
-import java.net.{DatagramPacket, DatagramSocket, InetAddress, InetSocketAddress}
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.{Date, UUID}
+import java.util.UUID
 
 import org.orleans.silo.communication.{
   PacketListener,
@@ -173,7 +170,7 @@ class Master(host: String, udpPort: Int = 161)
                            List(slaveInfo.host, slaveInfo.port.toString))
     notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
 
-    // Finally send this slave all connects from other slaves.
+    // Finally send this slave awareness of all other slaves.
     for ((slaveUUID, otherSlaveInfo) <- slaves) {
       if (slaveUUID != slaveInfo.uuid) {
         val slavePacket = Packet(
@@ -215,6 +212,14 @@ class Master(host: String, udpPort: Int = 161)
     slaves.put(packet.uuid, slaveInfo)
   }
 
+  /**
+    * Processes a shutdown of a slave.
+    * 1) Remove the slave from its own table.
+    * 2) Make other slaves aware this slave is removed.
+    * @param packet The shutdown packet.
+    * @param host The host receiving from.
+    * @param port The port receiving from.
+    */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Remove the slave.
     removeSlave(packet.uuid)

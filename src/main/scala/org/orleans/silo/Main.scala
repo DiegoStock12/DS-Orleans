@@ -9,10 +9,7 @@ object Main {
     setLevel(Level.DEBUG) // The debug level might give a little bit too much info.
 
     /**
-      * This is just a scenario with 3 slaves and 1 master.
-      * The master is started shortly after the slaves so that the slaves do some handshake attempts first.
-      * Then, they end up sending each other heartbeats.
-      * Finally after 10 seconds, both master and slaves are shut down.
+      * A simple test-scenario is run here.
       */
     val master = new Master("localhost", 123)
     val slave = new Slave("localhost", 124, MasterConfig("localhost", 123))
@@ -22,22 +19,25 @@ object Main {
     //slave2.start()
     //slave3.start()
 
-    //start master after 2 seconds
-    //Thread.sleep(2000)
     master.start()
     slave.start()
     slave2.start()
     slave3.start()
 
-    // Let main thread sleep for 10 seconds
+    // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)
+
+    // Let see if other slaves are aware of each other.
     println(slave.getSlaves())
     println(slave2.getSlaves())
     println(slave3.getSlaves())
     println(master.getSlaves())
+
+    // Stop one slave.
     slave.stop()
     Thread.sleep(1000 * 15)
 
+    // See if the awareness is updated.
     println(slave2.getSlaves())
     println(slave3.getSlaves())
     println(master.getSlaves())

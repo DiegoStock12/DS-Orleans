@@ -87,7 +87,7 @@ class PacketManager(listener: PacketListener, port: Int)
     * @param port the port to send to.
     */
   def send(packet: Packet, host: String, port: Int): Unit = {
-    if (socket.isClosed) { // If the socket is closed, we can't
+    if (socket.isClosed) { // If the socket is closed, we can't send any more packets.
       return
     }
 
