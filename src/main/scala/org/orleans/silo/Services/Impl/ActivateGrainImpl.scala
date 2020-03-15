@@ -1,4 +1,4 @@
-package org.orleans.silo.Services
+package org.orleans.silo.Services.Impl
 
 import org.orleans.common.Grain
 import org.orleans.silo.activateGrain.{ActivateGrainServiceGrpc, ActivateRequest, ActivationSuccess}

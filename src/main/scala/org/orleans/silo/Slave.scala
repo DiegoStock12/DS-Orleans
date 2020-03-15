@@ -3,29 +3,26 @@ package org.orleans.silo
 import java.util.logging.Logger
 
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Services.UpdateStateServiceImpl
-import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
+import org.orleans.silo.Services.Impl.ActivateGrainImpl
+import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.utils.GrainDescriptor
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
-object Slave  {
+object Slave {
   // logger for the classes
   private val logger = Logger.getLogger(classOf[Slave].getName)
   private val port = 50060
   private val address = "10.100.9.99"
 
   def start(): Unit = {
-    val slave = new Slave(ExecutionContext.global)
-    slave.start()
-    slave.blockUntilShutdown()
+    new Thread(new Slave(ExecutionContext.global)).start()
   }
 }
 
 
-//TODO I think we should run gRPC server for receiving request in other thread.
-class Slave(executionContext: ExecutionContext) extends Runnable{
+class Slave(executionContext: ExecutionContext) extends Runnable {
 
   // For now just define it as a gRPC endpoint
   self =>
@@ -38,7 +35,7 @@ class Slave(executionContext: ExecutionContext) extends Runnable{
    * Start the gRPC server for GrainLookup
    */
   private def start(): Unit = {
-    slave = ServerBuilder.forPort(Slave.port).addService(UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(), executionContext))
+    slave = ServerBuilder.forPort(Slave.port).addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(), executionContext))
       .build.start
 
     Slave.logger.info("Slave server started, listening on port " + Slave.port)
@@ -61,7 +58,8 @@ class Slave(executionContext: ExecutionContext) extends Runnable{
     }
   }
 
-  def run {
-    // Code here
+  def run: Unit = {
+    start()
+    blockUntilShutdown()
   }
 }

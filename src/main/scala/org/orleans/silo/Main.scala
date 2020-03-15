@@ -8,8 +8,9 @@ object Main {
     if (true) {
       Master.start()
 
-    } else if (args(0) == "slave") {
+    } else if (false) {
       val master_ip = args(1)
+      Slave.start()
     }
   }
 }

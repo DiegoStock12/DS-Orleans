@@ -1,4 +1,4 @@
-package org.orleans.silo.Services
+package org.orleans.silo.Services.Impl
 
 import org.orleans.silo.grainSearch.{GrainSearchGrpc, SearchRequest, SearchResult}
 import org.orleans.silo.utils.{GrainDescriptor, SlaveDetails}
