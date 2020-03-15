@@ -12,6 +12,8 @@ object ConnectionProtocol {
     val HANDSHAKE = "handshake"
     val WELCOME = "welcome"
     val SHUTDOWN = "shutdown"
+    val SLAVE_CONNECT = "slave_connect"
+    val SLAVE_DISCONNECT = "slave_disconnect"
   }
 
   // Data we keep track of in our master and slaves.
@@ -20,7 +22,7 @@ object ConnectionProtocol {
   case class SlaveInfo(uuid: String,
                        host: String,
                        port: Int,
-                       lastHeartbeat: Long)
+                       lastHeartbeat: Long = -1)
 
   // The interval for which heart beats are sent.
   val heartbeatInterval: Long = 1000
@@ -41,7 +43,10 @@ object ConnectionProtocol {
   val maxPacketBuffer: Int = 1024
 
   // Simple structure to keep packet data.
-  case class Packet(packetType: String, uuid: String, timestamp: Long)
+  case class Packet(packetType: String,
+                    uuid: String,
+                    timestamp: Long,
+                    data: List[String] = List())
 
   /**
     * Parses packet from String to Packet.
@@ -50,9 +55,13 @@ object ConnectionProtocol {
     */
   def toPacket(packet: String): Option[Packet] =
     packet.split(packetSeparator).toList match {
-      case ty :: uuid :: timestamp :: Nil
+      case ty :: uuid :: timestamp :: tail
           if parseLong(timestamp.trim()) != None =>
-        Some(Packet(ty.trim(), uuid.trim(), parseLong(timestamp.trim()).get))
+        Some(
+          Packet(ty.trim(),
+                 uuid.trim(),
+                 parseLong(timestamp.trim()).get,
+                 tail.map(_.trim)))
       case _ => None // Couldn't parse this packet
     }
 
@@ -70,7 +79,8 @@ object ConnectionProtocol {
     * @return a stringified packet.
     */
   def fromPacket(packet: Packet): String =
-    packet.packetType + packetSeparator + packet.uuid + packetSeparator + packet.timestamp
+    packet.packetType + packetSeparator + packet.uuid + packetSeparator + packet.timestamp + packetSeparator + packet.data
+      .mkString(packetSeparator.toString)
 
   /** Helper function to parse a Long. **/
   def parseLong(s: String) = try { Some(s.toLong) } catch { case _ => None }

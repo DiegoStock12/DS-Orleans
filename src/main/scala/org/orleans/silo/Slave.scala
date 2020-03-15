@@ -5,16 +5,11 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.communication.{
-  ConnectionProtocol => protocol,
   PacketListener,
-  PacketManager
+  PacketManager,
+  ConnectionProtocol => protocol
 }
-import org.orleans.silo.communication.ConnectionProtocol.{
-  MasterConfig,
-  MasterInfo,
-  Packet,
-  PacketType
-}
+import org.orleans.silo.communication.ConnectionProtocol._
 
 /**
   * Slave silo. Handles request from the master.
@@ -43,6 +38,9 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
 
   // Packetmanager which send packets and receives packets (event-driven).
   val packetManager: PacketManager = new PacketManager(this, udpPort)
+
+  // Hash table of other slaves. This is threadsafe.
+  val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
   /**
     * Starts the slave.
@@ -153,10 +151,13 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       host: String,
       port: Int
   ): Unit = packet.packetType match {
-    case PacketType.WELCOME   => processWelcome(packet, host, port)
-    case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => processShutdown(packet, host, port)
-    case _                    => logger.error(s"Did not expect this packet: $packet.")
+    case PacketType.WELCOME       => processWelcome(packet, host, port)
+    case PacketType.HEARTBEAT     => processHeartbeat(packet, host, port)
+    case PacketType.SLAVE_CONNECT => processSlaveConnect(packet, host, port)
+    case PacketType.SLAVE_DISCONNECT =>
+      processSlaveDisconnect(packet, host, port)
+    case PacketType.SHUTDOWN => processShutdown(packet, host, port)
+    case _                   => logger.error(s"Did not expect this packet: $packet.")
 
   }
 
@@ -196,6 +197,27 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       masterInfo.copy(lastHeartbeat = System.currentTimeMillis())
   }
 
+  def processSlaveConnect(packet: Packet, host: String, port: Int): Unit = {
+    // If slave is already in the cluster, we will not add it again.
+    if (slaves.contains(packet.uuid)) return
+
+    // Store slaveInfo from data in packet.
+    slaves.put(packet.uuid,
+               SlaveInfo(packet.uuid, packet.data(0), packet.data(1).toInt))
+    logger.debug(
+      s"Added new slave ${protocol.shortUUID(packet.uuid)} to local hashtable.")
+  }
+
+  def processSlaveDisconnect(packet: Packet, host: String, port: Int): Unit = {
+    // If slave is not in the cluster, we will ignore this packet.
+    if (!slaves.contains(packet.uuid)) return
+
+    // Store slaveInfo from data in packet.
+    slaves.remove(packet.uuid)
+    logger.debug(
+      s"Removed slave ${protocol.shortUUID(packet.uuid)} from local hashtable.")
+  }
+
   /**
     * Processes a shutdown packet by stopping the slave.
     * @param packet the shutdown packet.
@@ -214,6 +236,9 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     this.stop()
   }
 
+  /** Returns all slaves. **/
+  def getSlaves(): List[SlaveInfo] = slaves.toList.map(_._2)
+
   /**
     * Stopping the slave.
     * Returns if it isn't running.
@@ -230,6 +255,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     // cancel itself
     this.packetManager.cancel()
     this.running = false
+    this.slaves.clear()
     logger.info("Slave exited.")
   }
 }

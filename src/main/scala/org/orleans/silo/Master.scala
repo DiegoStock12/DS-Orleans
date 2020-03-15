@@ -88,12 +88,15 @@ class Master(host: String, udpPort: Int = 161)
   }
 
   /**
-    * Send a packet to all slaves.
+    * Send a packet to all slaves (exluding the slaves from the except list).
     * @param packet the packet to send.
+    * @param except: the slaves not to send to.
     */
-  def notifyAllSlaves(packet: Packet): Unit = {
+  def notifyAllSlaves(packet: Packet, except: List[String] = List()): Unit = {
     for ((_, slaveInfo) <- slaves) {
-      packetManager.send(packet, slaveInfo.host, slaveInfo.port)
+      if (!except.contains(slaveInfo.uuid)) {
+        packetManager.send(packet, slaveInfo.host, slaveInfo.port)
+      }
     }
   }
 
@@ -134,7 +137,7 @@ class Master(host: String, udpPort: Int = 161)
   ): Unit = packet.packetType match {
     case PacketType.HANDSHAKE => processHandshake(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => removeSlave(packet.uuid)
+    case PacketType.SHUTDOWN  => processShutdown(packet, host, port)
     case _                    => logger.warn(s"Did not expect this packet: $packet.")
   }
 
@@ -143,6 +146,7 @@ class Master(host: String, udpPort: Int = 161)
     * 1) If the slave is already in the cluster, we ignore this packet.
     * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
     * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
+    * 4) Send all other slaves there is a new slave in the cluster.
     *
     * @param packet The handshake packet.
     * @param host The host receiving from.
@@ -161,6 +165,26 @@ class Master(host: String, udpPort: Int = 161)
     val welcome =
       Packet(PacketType.WELCOME, this.uuid, System.currentTimeMillis())
     packetManager.send(welcome, host, port)
+
+    // And send all other slaves in the cluster there is a new slave.
+    val new_slave = Packet(PacketType.SLAVE_CONNECT,
+                           slaveInfo.uuid,
+                           System.currentTimeMillis(),
+                           List(slaveInfo.host, slaveInfo.port.toString))
+    notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
+
+    // Finally send this slave all connects from other slaves.
+    for ((slaveUUID, otherSlaveInfo) <- slaves) {
+      if (slaveUUID != slaveInfo.uuid) {
+        val slavePacket = Packet(
+          PacketType.SLAVE_CONNECT,
+          otherSlaveInfo.uuid,
+          System.currentTimeMillis(),
+          List(otherSlaveInfo.host, otherSlaveInfo.port.toString))
+
+        packetManager.send(slavePacket, host, port)
+      }
+    }
 
     logger.debug(s"Slave with ${slaveInfo.uuid} is added to the cluster.")
   }
@@ -191,6 +215,20 @@ class Master(host: String, udpPort: Int = 161)
     slaves.put(packet.uuid, slaveInfo)
   }
 
+  def processShutdown(packet: Packet, host: String, port: Int): Unit = {
+    // Remove the slave.
+    removeSlave(packet.uuid)
+
+    // Notify all others the slave has been removed.
+    val disconnect = Packet(PacketType.SLAVE_DISCONNECT,
+                            packet.uuid,
+                            System.currentTimeMillis())
+    notifyAllSlaves(disconnect)
+  }
+
+  /** Returns all slaves. **/
+  def getSlaves(): List[SlaveInfo] = slaves.toList.map(_._2)
+
   /**
     * Stopping the master.
     * Returns if it isn't running.
@@ -211,6 +249,7 @@ class Master(host: String, udpPort: Int = 161)
     // Cancel packet manager and control thread.
     this.packetManager.cancel()
     this.running = false
+    this.slaves.clear()
     logger.info("Master exited.")
   }
 

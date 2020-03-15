@@ -31,8 +31,16 @@ object Main {
 
     // Let main thread sleep for 10 seconds
     Thread.sleep(1000 * 5)
+    println(slave.getSlaves())
+    println(slave2.getSlaves())
+    println(slave3.getSlaves())
+    println(master.getSlaves())
     slave.stop()
     Thread.sleep(1000 * 15)
+
+    println(slave2.getSlaves())
+    println(slave3.getSlaves())
+    println(master.getSlaves())
 
     // Stop all by stopping the master.
     master.stop()
