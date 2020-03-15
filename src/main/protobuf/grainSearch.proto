@@ -11,8 +11,7 @@ service GrainSearch {
 // Message sent by the client asking the master
 // about the server which contains that grain
 message SearchRequest {
-    string grainType = 1;
-    string grainID = 2;
+    string grainID = 1;
 }
 
 // Message sent by the master indicating

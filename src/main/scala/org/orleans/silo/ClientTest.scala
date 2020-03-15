@@ -41,12 +41,12 @@ class ClientTest (val channel: ManagedChannel, val stub: GrainSearchStub) {
 
   def search(id: String): Unit = {
     logger.info("Will try to find the address of the grain User/" + id)
-    val request = SearchRequest(grainType =  "Tonto", grainID =  id)
+    val request = SearchRequest(grainID =  id)
     println(request)
     try {
       val f : Future[SearchResult] = stub.searchGrain(request)
       f onComplete {
-        case Success(results) => println(results)
+        case Success(results) => println("Search Results -> Address "+ results.serverAddress+", port: "+results.serverPort)
         case Failure(exception) => exception.printStackTrace()
       }
 

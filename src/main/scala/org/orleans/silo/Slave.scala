@@ -1,11 +1,15 @@
-package org.orleans.silo
+package main.scala.org.orleans.silo
 
 import java.util.logging.Logger
 
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Services.Impl.ActivateGrainImpl
+import org.orleans.silo.Services.Impl.{ActivateGrainImpl, GreeterImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
+import org.orleans.silo.hello.GreeterGrpc
 import org.orleans.silo.utils.GrainDescriptor
+
+
+// Hash table of other slaves
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -35,12 +39,18 @@ class Slave(executionContext: ExecutionContext) extends Runnable {
    * Start the gRPC server for GrainLookup
    */
   private def start(): Unit = {
-    slave = ServerBuilder.forPort(Slave.port).addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(), executionContext))
+    slave = ServerBuilder.forPort(Slave.port)
+      .addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(), executionContext))
+      // Add the Greeter service for testing
       .build.start
+
+    ServerBuilder.forPort(50400)
+      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext)).build.start
 
     Slave.logger.info("Slave server started, listening on port " + Slave.port)
     sys.addShutdownHook {
       System.err.println("*** shutting down gRPC server since JVM is shutting down")
+      // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly
       self.stop()
       System.err.println("*** server shut down")
     }
@@ -63,3 +73,4 @@ class Slave(executionContext: ExecutionContext) extends Runnable {
     blockUntilShutdown()
   }
 }
+
