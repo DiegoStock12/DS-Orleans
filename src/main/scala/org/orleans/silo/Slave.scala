@@ -5,7 +5,7 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.communication.{
-  ConnectionProtocol,
+  ConnectionProtocol => protocol,
   PacketListener,
   PacketManager
 }
@@ -69,7 +69,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     while (running) {
       // If not connected to the master, lets do a handshake.
       if (!connectedToMaster) {
-        connectToMaster()
+        if (!connectToMaster()) return // If we can't connect, exit this loop.
       }
 
       // Keep track of local time, to ensure sending heartbeats on time.
@@ -77,7 +77,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       val timeDiff = newTime - oldTime
 
       // Check if it is time to send heartbeats again.
-      if (timeDiff >= ConnectionProtocol.heartbeatInterval) {
+      if (timeDiff >= protocol.heartbeatInterval) {
         logger.debug("Sending heartbeats to master.")
 
         // Send heartbeat to the master.
@@ -89,6 +89,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
       }
 
       // TODO: HERE SOME LOGIC TO CONFIRM MASTER IS STILL ALIVE
+      verifyMasterAlive()
 
       // Now time to sleep :)
       Thread.sleep(100)
@@ -102,27 +103,43 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     *   - If not received within `connectionDelay`ms, then retry `conectionAttempts` times.
     *   - If no welcome packet is received at all. Slave silo is shut down.
     */
-  def connectToMaster(): Unit = {
+  def connectToMaster(): Boolean = {
     logger.info("Connecting to master.")
-    for (i <- 1 to ConnectionProtocol.connectionAttempts) {
+    for (i <- 1 to protocol.connectionAttempts) {
       // Send a handshake and wait for a bit.
       val handshake =
         new Packet(PacketType.HANDSHAKE, this.uuid, System.currentTimeMillis())
       packetManager.send(handshake, masterConfig.host, masterConfig.udpPort)
-      Thread.sleep(ConnectionProtocol.connectionDelay)
+      Thread.sleep(protocol.connectionDelay)
 
       // If connected, the slave can start its life.
       if (connectedToMaster) {
-        return
+        return true
       }
 
       logger.info(
-        s"Couldn't connect to master. Attempt $i/${ConnectionProtocol.connectionAttempts}.")
+        s"Couldn't connect to master. Attempt $i/${protocol.connectionAttempts}.")
     }
 
     // If couldn't connect to the master after x attempts, shutdown server.
     logger.error("Couldn't connect to master. Now shutting down.")
     this.stop()
+
+    // We couldn't connect at all.
+    return false
+  }
+
+  /**
+    * Verifies if the master is still alive. If not, the slave gets disconnected (and then tries to reconnect).
+    */
+  def verifyMasterAlive(): Unit = {
+    if ((System
+          .currentTimeMillis() - masterInfo.lastHeartbeat) >= protocol.deathTime) {
+      //consider it dead
+      logger.info("Connection to master seems to be dead.")
+      masterInfo = MasterInfo("", -1)
+      connectedToMaster = false
+    }
   }
 
   /**

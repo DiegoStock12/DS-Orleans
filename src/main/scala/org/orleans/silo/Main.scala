@@ -18,16 +18,21 @@ object Main {
     val slave = new Slave("localhost", 124, MasterConfig("localhost", 123))
     val slave2 = new Slave("localhost", 125, MasterConfig("localhost", 123))
     val slave3 = new Slave("localhost", 126, MasterConfig("localhost", 123))
+    //slave.start()
+    //slave2.start()
+    //slave3.start()
+
+    //start master after 2 seconds
+    //Thread.sleep(2000)
+    master.start()
     slave.start()
     slave2.start()
     slave3.start()
 
-    //start master after 2 seconds
-    Thread.sleep(2000)
-    master.start()
-
     // Let main thread sleep for 10 seconds
-    Thread.sleep(1000 * 10)
+    Thread.sleep(1000 * 5)
+    master.stop()
+    Thread.sleep(1000 * 15)
 
     // Stop both
     slave.stop()

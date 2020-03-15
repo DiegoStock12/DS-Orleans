@@ -86,7 +86,11 @@ class PacketManager(listener: PacketListener, port: Int)
     * @param host the host to send to.
     * @param port the port to send to.
     */
-  def send(packet: Packet, host: String, port: Int) = {
+  def send(packet: Packet, host: String, port: Int): Unit = {
+    if (socket.isClosed) { // If the socket is closed, we can't
+      return
+    }
+
     val packetBytes: Array[Byte] =
       protocol.fromPacket(packet).getBytes(StandardCharsets.UTF_8)
 
