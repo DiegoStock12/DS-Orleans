@@ -6,7 +6,7 @@ import org.orleans.silo.communication.ConnectionProtocol.MasterConfig
 object Main {
 
   def main(args: Array[String]): Unit = {
-    setLevel(Level.INFO) // The debug level might give a little bit too much info.
+    setLevel(Level.DEBUG) // The debug level might give a little bit too much info.
 
     /**
       * This is just a scenario with 3 slaves and 1 master.
@@ -31,13 +31,10 @@ object Main {
 
     // Let main thread sleep for 10 seconds
     Thread.sleep(1000 * 5)
-    master.stop()
+    slave.stop()
     Thread.sleep(1000 * 15)
 
-    // Stop both
-    slave.stop()
-    slave2.stop()
-    slave3.stop()
+    // Stop all by stopping the master.
     master.stop()
   }
 

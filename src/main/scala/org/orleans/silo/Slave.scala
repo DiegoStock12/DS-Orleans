@@ -29,7 +29,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
 
   // Metadata for the slave.
   val uuid: String = UUID.randomUUID().toString
-  val shortId: String = uuid.split('-')(0)
+  val shortId: String = protocol.shortUUID(uuid)
 
   @volatile
   var running: Boolean = false
@@ -50,7 +50,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     * - Creates a packet-manager which handles incoming and outgoing packets.
     */
   def start() = {
-    logger.info(f"Now starting slave with id: $uuid.")
+    logger.info(f"Now starting slave with id: ${protocol.shortUUID(uuid)}.")
     this.running = true
 
     // Starting a packet manager which listens for incoming packets.
@@ -88,7 +88,6 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
         oldTime = newTime
       }
 
-      // TODO: HERE SOME LOGIC TO CONFIRM MASTER IS STILL ALIVE
       verifyMasterAlive()
 
       // Now time to sleep :)
@@ -133,10 +132,10 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     * Verifies if the master is still alive. If not, the slave gets disconnected (and then tries to reconnect).
     */
   def verifyMasterAlive(): Unit = {
-    if ((System
-          .currentTimeMillis() - masterInfo.lastHeartbeat) >= protocol.deathTime) {
+    val diffTime = System.currentTimeMillis() - masterInfo.lastHeartbeat
+    if (diffTime >= protocol.deathTime) {
       //consider it dead
-      logger.info("Connection to master seems to be dead.")
+      logger.warn("Connection to master timed out. Will try reconnect.")
       masterInfo = MasterInfo("", -1)
       connectedToMaster = false
     }
@@ -156,7 +155,7 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
   ): Unit = packet.packetType match {
     case PacketType.WELCOME   => processWelcome(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => // TODO: SHUTDOWN HERE
+    case PacketType.SHUTDOWN  => processShutdown(packet, host, port)
     case _                    => logger.error(s"Did not expect this packet: $packet.")
 
   }
@@ -198,14 +197,35 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
   }
 
   /**
+    * Processes a shutdown packet by stopping the slave.
+    * @param packet the shutdown packet.
+    * @param host the host receiving from.
+    * @param port the port receiving from.
+    */
+  def processShutdown(packet: Packet, host: String, port: Int): Unit = {
+    // Check if it is actually the master.
+    if (packet.uuid != masterInfo.uuid) {
+      logger.warn(
+        "Got a shutdown packet from a source which doesn't seem to be the master. Ignoring it.")
+      return
+    }
+
+    // Stops the slave.
+    this.stop()
+  }
+
+  /**
     * Stopping the slave.
     * Returns if it isn't running.
     */
   def stop(): Unit = {
     if (!running) return
-    logger.info(f"Now stopping slave with id: $uuid.")
+    logger.info(f"Now stopping slave with id: ${protocol.shortUUID(uuid)}.")
 
-    // TODO Clean-up here.
+    // Send shutdown packet to master.
+    val shutdown =
+      Packet(PacketType.SHUTDOWN, this.uuid, System.currentTimeMillis())
+    packetManager.send(shutdown, masterConfig.host, masterConfig.udpPort)
 
     // cancel itself
     this.packetManager.cancel()

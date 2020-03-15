@@ -74,4 +74,7 @@ object ConnectionProtocol {
 
   /** Helper function to parse a Long. **/
   def parseLong(s: String) = try { Some(s.toLong) } catch { case _ => None }
+
+  /** Retrieves the first part of a UUID. **/
+  def shortUUID(uuid: String) = uuid.split("-")(0)
 }

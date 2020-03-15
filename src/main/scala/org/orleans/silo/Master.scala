@@ -28,7 +28,7 @@ class Master(host: String, udpPort: Int = 161)
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
-  val shortId: String = uuid.split('-')(0)
+  val shortId: String = protocol.shortUUID(uuid)
 
   @volatile
   var running: Boolean = false
@@ -46,7 +46,7 @@ class Master(host: String, udpPort: Int = 161)
     * - Creates a packet-manager which handles incoming and outgoing packets.
     */
   def start() = {
-    logger.info(f"Now starting master with id: $uuid.")
+    logger.info(f"Now starting master with id: ${protocol.shortUUID(uuid)}.")
     this.running = true
 
     // Starting a packet manager which listens for incoming packets.
@@ -73,18 +73,51 @@ class Master(host: String, udpPort: Int = 161)
 
         // Send its heartbeat to all slaves.
         val heartbeat = Packet(PacketType.HEARTBEAT, this.uuid, newTime)
-        slaves.foreach(slave =>
-          packetManager.send(heartbeat, slave._2.host, slave._2.port))
+        notifyAllSlaves(heartbeat)
 
         // Update time
         oldTime = newTime
       }
 
-      // TODO: HERE SOME LOGIC TO CHECK IF SLAVES ARE STILL ALIVE
+      // Verify if the slaves are still alive.
+      verifySlavesAlive()
 
       // Now time to sleep :)
       Thread.sleep(SLEEP_TIME)
     }
+  }
+
+  /**
+    * Send a packet to all slaves.
+    * @param packet the packet to send.
+    */
+  def notifyAllSlaves(packet: Packet): Unit = {
+    for ((_, slaveInfo) <- slaves) {
+      packetManager.send(packet, slaveInfo.host, slaveInfo.port)
+    }
+  }
+
+  /**
+    * Verifies if all slaves are still alive, otherwise they get removed from the cluster.
+    */
+  def verifySlavesAlive(): Unit = {
+    for ((slaveUUID, slaveInfo) <- slaves) {
+      val diffTime = System.currentTimeMillis() - slaveInfo.lastHeartbeat
+      if (diffTime >= protocol.deathTime) {
+        logger.warn(
+          s"Connection to slave ${protocol.shortUUID(slaveUUID)} timed out.")
+        removeSlave(slaveUUID)
+      }
+    }
+  }
+
+  /**
+    * Remove slave from cluster.
+    * @param slaveUUID the uuid to remove.
+    */
+  def removeSlave(slaveUUID: String): Unit = {
+    logger.debug(s"Remove slave ${protocol.shortUUID(slaveUUID)} from cluster.")
+    slaves.remove(slaveUUID) // We remove it from the cluster.
   }
 
   /**
@@ -101,7 +134,7 @@ class Master(host: String, udpPort: Int = 161)
   ): Unit = packet.packetType match {
     case PacketType.HANDSHAKE => processHandshake(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => //TODO Implement shutdown of slave.
+    case PacketType.SHUTDOWN  => removeSlave(packet.uuid)
     case _                    => logger.warn(s"Did not expect this packet: $packet.")
   }
 
@@ -144,7 +177,7 @@ class Master(host: String, udpPort: Int = 161)
     * @param port The port receiving from.
     */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
-    if (slaves.contains(packet.uuid)) {
+    if (!slaves.contains(packet.uuid)) {
       logger.debug(
         "Got a heartbeat from an unknown slave. Probably it has been disconnected in the past.")
       return
@@ -164,12 +197,16 @@ class Master(host: String, udpPort: Int = 161)
     */
   def stop(): Unit = {
     if (!running) return
-    logger.info(f"Now stopping master with id: $uuid.")
+    logger.info(f"Now stopping master with id: ${protocol.shortUUID(uuid)}.")
 
-    // shutdown slaves here
-    logger.info("Trying to shutdown the slaves.")
+    // Shutdown slaves here.
+    logger.debug("Trying to shutdown the slaves.")
+    val shutdown =
+      Packet(PacketType.SHUTDOWN, this.uuid, System.currentTimeMillis())
+    notifyAllSlaves(shutdown)
 
-    // TODO Clean-up here.
+    // Wait a bit until all slaves are removed.
+    Thread.sleep(SLEEP_TIME * 5)
 
     // Cancel packet manager and control thread.
     this.packetManager.cancel()
