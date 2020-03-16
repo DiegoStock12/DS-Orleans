@@ -1,5 +1,6 @@
 package main.scala.org.orleans.silo
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 import org.orleans.silo.communication.{
   PacketListener,
@@ -7,10 +8,22 @@ import org.orleans.silo.communication.{
   ConnectionProtocol => protocol
 }
 import com.typesafe.scalalogging.LazyLogging
+import io.grpc.{Server, ServerBuilder}
+import org.orleans.silo.Services.Impl.{GrainSearchImpl, UpdateStateServiceImpl}
 import org.orleans.silo.communication.ConnectionProtocol.{
   Packet,
   PacketType,
   SlaveInfo
+}
+import org.orleans.silo.grainSearch.GrainSearchGrpc
+import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
+import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
+
+import scala.concurrent.ExecutionContext
+
+object Master {
+  // logger for the classes
+  private val port = 50050
 }
 
 /**
@@ -18,10 +31,20 @@ import org.orleans.silo.communication.ConnectionProtocol.{
   * @param host the host of this server.
   * @param udpPort the UDP port for low-level communication.
   */
-class Master(host: String, udpPort: Int = 161)
+class Master(host: String,
+             udpPort: Int = 161,
+             executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
     with PacketListener {
+
+  // For now just define it as a gRPC endpoint
+  self =>
+  private[this] var master: Server = null
+  // Hashmap to save the grain references
+  private val grainMap: ConcurrentHashMap[String, GrainDescriptor] =
+    new ConcurrentHashMap[String, GrainDescriptor]()
+  // Add a default object
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -53,6 +76,29 @@ class Master(host: String, udpPort: Int = 161)
     val masterThread = new Thread(this)
     masterThread.setName(f"master-$shortId")
     masterThread.start()
+  }
+
+  def startgRPC() = {
+    grainMap.put(
+      "diegoalbo",
+      GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
+    master = ServerBuilder
+      .forPort(Master.port)
+      .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
+                                              executionContext))
+      .addService(
+        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
+                                                executionContext))
+      .build
+      .start
+
+    logger.info("Master server started, listening on port " + Master.port)
+    sys.addShutdownHook {
+      System.err.println(
+        "*** shutting down gRPC server since JVM is shutting down")
+      self.stop()
+      System.err.println("*** server shut down")
+    }
   }
 
   /** Control loop. */
@@ -252,6 +298,9 @@ class Master(host: String, udpPort: Int = 161)
     Thread.sleep(SLEEP_TIME * 5)
 
     // Cancel packet manager and control thread.
+    if (master != null) {
+      master.shutdown()
+    }
     this.packetManager.cancel()
     this.running = false
     this.slaves.clear()

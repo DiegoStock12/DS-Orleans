@@ -1,13 +1,29 @@
 package main.scala.org.orleans.silo
 import java.util.UUID
+import java.util.logging.Logger
 
 import com.typesafe.scalalogging.LazyLogging
+import io.grpc.{Server, ServerBuilder}
+import org.orleans.silo.Services.Impl.{ActivateGrainImpl, GreeterImpl}
+import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.{
   PacketListener,
   PacketManager,
   ConnectionProtocol => protocol
 }
 import org.orleans.silo.communication.ConnectionProtocol._
+import org.orleans.silo.hello.GreeterGrpc
+import org.orleans.silo.utils.GrainDescriptor
+
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext
+
+object Slave {
+  // logger for the classes
+  private val port = 50060
+  private val address = "10.100.9.99"
+
+}
 
 /**
   * Slave silo. Handles request from the master.
@@ -15,10 +31,20 @@ import org.orleans.silo.communication.ConnectionProtocol._
   * @param udpPort the UDP port for low-level communication.
   * @param masterConfig configuration to connect to the master.
   */
-class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
+class Slave(host: String,
+            udpPort: Int = 161,
+            masterConfig: MasterConfig,
+            executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
     with PacketListener {
+
+  // For now just define it as a gRPC endpoint
+  self =>
+  private[this] var slave: Server = null
+  // Hashmap to save the grain references
+  private val grainMap: mutable.HashMap[String, GrainDescriptor] =
+    mutable.HashMap[String, GrainDescriptor]()
 
   // Metadata for the slave.
   val uuid: String = UUID.randomUUID().toString
@@ -56,6 +82,34 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     val slaveThread = new Thread(this)
     slaveThread.setName(f"slave-$shortId")
     slaveThread.start()
+
+    startgRPC()
+  }
+
+  def startgRPC() = {
+    slave = ServerBuilder
+      .forPort(Slave.port)
+      .addService(
+        ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
+                                             executionContext))
+      // Add the Greeter service for testing
+      .build
+      .start
+
+    ServerBuilder
+      .forPort(50400)
+      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext))
+      .build
+      .start
+
+    logger.info("Slave server started, listening on port " + Slave.port)
+    sys.addShutdownHook {
+      System.err.println(
+        "*** shutting down gRPC server since JVM is shutting down")
+      // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly
+      self.stop()
+      System.err.println("*** server shut down")
+    }
   }
 
   /** Control loop. */
@@ -267,6 +321,9 @@ class Slave(host: String, udpPort: Int = 161, masterConfig: MasterConfig)
     packetManager.send(shutdown, masterConfig.host, masterConfig.udpPort)
 
     // cancel itself
+    if (slave != null) {
+      slave.shutdown()
+    }
     this.packetManager.cancel()
     this.running = false
     this.slaves.clear()

@@ -1,0 +1,12 @@
+@namespace("silo")
+protocol GetGrain {
+  record GrainRequest {
+    string grainType;
+    string grainId;
+  }
+
+  record GrainResponse {
+    string serverAddress;
+    boolean allCorrect;
+  }
+}
