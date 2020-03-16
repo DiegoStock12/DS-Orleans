@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package org.orleans.silo;
+
+service UpdateGrainStateService{
+    rpc UpdateState (UpdateStateRequest) returns (UpdateSuccess) {}
+}
+
+message UpdateStateRequest{
+    int64 grainId = 100;
+    enum State {
+        InMemory = 0;
+        Persisted = 1;
+        Activating = 2;
+        Deactivating = 3;
+    }
+    State state = 1;
+
+}
+
+message UpdateSuccess{
+    bool success = 1;
+}
