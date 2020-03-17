@@ -79,6 +79,9 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
     masterThread.start()
   }
 
+  /**
+    * Starts the gRPC server.
+    */
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",

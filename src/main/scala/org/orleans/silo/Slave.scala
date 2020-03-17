@@ -86,6 +86,9 @@ class Slave(slaveConfig: SlaveConfig,
     startgRPC()
   }
 
+  /**
+    * Starts the gRPC server.
+    */
   def startgRPC() = {
     slave = ServerBuilder
       .forPort(slaveConfig.rcpPort)
