@@ -4,6 +4,8 @@ import java.util.logging.Logger
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
+import main.scala.org.orleans.silo.Master.MasterConfig
+import main.scala.org.orleans.silo.Slave.SlaveConfig
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, GreeterImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.{
@@ -19,10 +21,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 object Slave {
-  // logger for the classes
-  private val port = 50060
-  private val address = "10.100.9.99"
-
+  case class SlaveConfig(host: String, udpPort: Int = 162, rcpPort: Int = 50060)
 }
 
 /**
@@ -31,8 +30,7 @@ object Slave {
   * @param udpPort the UDP port for low-level communication.
   * @param masterConfig configuration to connect to the master.
   */
-class Slave(host: String,
-            udpPort: Int = 161,
+class Slave(slaveConfig: SlaveConfig,
             masterConfig: MasterConfig,
             executionContext: ExecutionContext)
     extends LazyLogging
@@ -42,6 +40,7 @@ class Slave(host: String,
   // For now just define it as a gRPC endpoint
   self =>
   private[this] var slave: Server = null
+
   // Hashmap to save the grain references
   private val grainMap: mutable.HashMap[String, GrainDescriptor] =
     mutable.HashMap[String, GrainDescriptor]()
@@ -61,7 +60,8 @@ class Slave(host: String,
   var masterInfo: MasterInfo = MasterInfo("", 0)
 
   // Packetmanager which send packets and receives packets (event-driven).
-  val packetManager: PacketManager = new PacketManager(this, udpPort)
+  val packetManager: PacketManager =
+    new PacketManager(this, slaveConfig.udpPort)
 
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
@@ -88,7 +88,7 @@ class Slave(host: String,
 
   def startgRPC() = {
     slave = ServerBuilder
-      .forPort(Slave.port)
+      .forPort(slaveConfig.rcpPort)
       .addService(
         ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
                                              executionContext))
@@ -102,13 +102,12 @@ class Slave(host: String,
       .build
       .start
 
-    logger.info("Slave server started, listening on port " + Slave.port)
+    logger.info(
+      "Slave server started, listening on port " + slaveConfig.rcpPort)
     sys.addShutdownHook {
-      System.err.println(
-        "*** shutting down gRPC server since JVM is shutting down")
+      logger.error("*** shutting down gRPC server since JVM is shutting down")
       // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly
-      self.stop()
-      System.err.println("*** server shut down")
+      this.stop()
     }
   }
 
