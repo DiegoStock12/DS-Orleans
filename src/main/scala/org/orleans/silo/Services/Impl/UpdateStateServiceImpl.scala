@@ -9,6 +9,11 @@ import org.orleans.silo.updateGrainState.{
 
 import scala.concurrent.Future
 
+
+/**
+ * Implementation of the updateGrainState service (This one may run on master and can be called by slaves to update the global state of the grain).
+ * The service is binded on the gRPC server and updateState can be called through remote call.
+ */
 class UpdateStateServiceImpl
     extends UpdateGrainStateServiceGrpc.UpdateGrainStateService
     with LazyLogging {

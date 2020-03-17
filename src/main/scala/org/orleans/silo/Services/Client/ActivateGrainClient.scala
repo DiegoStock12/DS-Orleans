@@ -1,7 +1,6 @@
 package org.orleans.silo.Services.Client
 
 import java.util.concurrent.TimeUnit
-import java.util.logging.{Level, Logger}
 
 import com.typesafe.scalalogging.LazyLogging
 
@@ -13,6 +12,9 @@ import org.orleans.silo.activateGrain.{ActivateRequest, ActivationSuccess}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
+/**
+ * Class that you can use to execute actiavteGrain service on a remote server through gRPC call.
+ */
 class ActivateGrainClient(private val channel: ManagedChannel,
                           private val stub: ActivateGrainServiceStub)
     extends ServiceClient

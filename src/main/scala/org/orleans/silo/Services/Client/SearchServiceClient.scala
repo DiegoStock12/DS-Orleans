@@ -1,18 +1,19 @@
 package org.orleans.silo.Services.Client
 
 import java.util.concurrent.TimeUnit
-import java.util.logging.Logger
 
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import io.grpc.ManagedChannel
+
 import org.orleans.silo.grainSearch.GrainSearchGrpc.GrainSearchStub
 import org.orleans.silo.grainSearch.{SearchRequest, SearchResult}
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
+/**
+ * Class that you can use to execute searchGrain service on a remote server through gRPC call.
+ */
 class SearchServiceClient(val channel: ManagedChannel,
                           val stub: GrainSearchStub)
     extends ServiceClient
