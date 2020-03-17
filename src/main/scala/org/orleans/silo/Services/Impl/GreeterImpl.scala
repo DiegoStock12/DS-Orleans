@@ -1,15 +1,17 @@
 package org.orleans.silo.Services.Impl
 
+import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.hello.{GreeterGrpc, HelloReply, HelloRequest}
 
 import scala.concurrent.Future
 
-class GreeterImpl extends GreeterGrpc.Greeter {
+class GreeterImpl extends GreeterGrpc.Greeter with LazyLogging {
 
-  println("Here greeter service waiting on port 50400 on the slave")
+  // TODO Can we log here not hardcoding the port.
+  logger.info(s"Here greeter service waiting on port 50040 on the slave")
 
   override def sayHello(request: HelloRequest): Future[HelloReply] = {
-    println("Received a request by " + request.name)
+    logger.debug("Received a request by " + request.name)
     val reply = HelloReply(message = "Hello " + request.name)
     Future.successful(reply)
   }

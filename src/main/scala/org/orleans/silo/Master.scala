@@ -9,6 +9,7 @@ import org.orleans.silo.communication.{
 }
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
+import main.scala.org.orleans.silo.Master.MasterConfig
 import org.orleans.silo.Services.Impl.{GrainSearchImpl, UpdateStateServiceImpl}
 import org.orleans.silo.communication.ConnectionProtocol.{
   Packet,
@@ -22,8 +23,9 @@ import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
 import scala.concurrent.ExecutionContext
 
 object Master {
-  // logger for the classes
-  private val port = 50050
+  case class MasterConfig(host: String,
+                          udpPort: Int = 161,
+                          rcpPort: Int = 50050)
 }
 
 /**
@@ -31,9 +33,7 @@ object Master {
   * @param host the host of this server.
   * @param udpPort the UDP port for low-level communication.
   */
-class Master(host: String,
-             udpPort: Int = 161,
-             executionContext: ExecutionContext)
+class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -41,10 +41,10 @@ class Master(host: String,
   // For now just define it as a gRPC endpoint
   self =>
   private[this] var master: Server = null
+
   // Hashmap to save the grain references
   private val grainMap: ConcurrentHashMap[String, GrainDescriptor] =
     new ConcurrentHashMap[String, GrainDescriptor]()
-  // Add a default object
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -58,7 +58,8 @@ class Master(host: String,
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
   // Packetmanager which send packets and receives packets (event-driven).
-  val packetManager: PacketManager = new PacketManager(this, udpPort)
+  val packetManager: PacketManager =
+    new PacketManager(this, masterConfig.udpPort)
 
   /**
     * Starts the master.
@@ -78,12 +79,15 @@ class Master(host: String,
     masterThread.start()
   }
 
+  /**
+    * Starts the gRPC server.
+    */
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",
       GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
     master = ServerBuilder
-      .forPort(Master.port)
+      .forPort(masterConfig.rcpPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
       .addService(
@@ -92,12 +96,11 @@ class Master(host: String,
       .build
       .start
 
-    logger.info("Master server started, listening on port " + Master.port)
+    logger.info(
+      "Master server started, listening on port " + masterConfig.udpPort)
     sys.addShutdownHook {
-      System.err.println(
-        "*** shutting down gRPC server since JVM is shutting down")
-      self.stop()
-      System.err.println("*** server shut down")
+      logger.error("*** shutting down gRPC server since JVM is shutting down")
+      this.stop()
     }
   }
 

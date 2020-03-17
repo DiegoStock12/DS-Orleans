@@ -17,7 +17,6 @@ object ConnectionProtocol {
   }
 
   // Data we keep track of in our master and slaves.
-  case class MasterConfig(host: String, udpPort: Int)
   case class MasterInfo(uuid: String, lastHeartbeat: Long)
   case class SlaveInfo(uuid: String,
                        host: String,

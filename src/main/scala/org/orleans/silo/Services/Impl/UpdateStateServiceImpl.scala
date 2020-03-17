@@ -1,14 +1,21 @@
 package org.orleans.silo.Services.Impl
 
-import org.orleans.silo.updateGrainState.{UpdateGrainStateServiceGrpc, UpdateStateRequest, UpdateSuccess}
+import com.typesafe.scalalogging.LazyLogging
+import org.orleans.silo.updateGrainState.{
+  UpdateGrainStateServiceGrpc,
+  UpdateStateRequest,
+  UpdateSuccess
+}
 
 import scala.concurrent.Future
 
+class UpdateStateServiceImpl
+    extends UpdateGrainStateServiceGrpc.UpdateGrainStateService
+    with LazyLogging {
 
-class UpdateStateServiceImpl extends UpdateGrainStateServiceGrpc.UpdateGrainStateService {
-  override def updateState(request: UpdateStateRequest):  Future[UpdateSuccess] = {
-    println("Updaeting state of the grain")
-
+  override def updateState(
+      request: UpdateStateRequest): Future[UpdateSuccess] = {
+    logger.debug("Updating state of the grain.")
     val reply = UpdateSuccess(success = true)
 
     Future.successful(reply)
