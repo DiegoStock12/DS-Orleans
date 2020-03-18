@@ -6,13 +6,10 @@ import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
 import main.scala.org.orleans.silo.Master.MasterConfig
 import main.scala.org.orleans.silo.Slave.SlaveConfig
-import org.orleans.silo.Services.Impl.{ActivateGrainImpl, GreeterImpl}
+import org.orleans.silo.Services.Impl.ActivateGrainImpl
+import org.orleans.silo.Test.GreeterImpl
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.hello.GreeterGrpc
 import org.orleans.silo.utils.GrainDescriptor
