@@ -21,8 +21,7 @@ object ClientTest {
   }
 
   def main(args: Array[String]): Unit = {
-//    val client = ClientTest("localhost", 50050)
-    val client = ServiceFactory.getService(Service.GrainSearch, "localhost", 50050).asInstanceOf[SearchServiceClient]
+    val client = ClientTest("localhost", 50050)
     try {
       client.search("diegoalbo")
     }
