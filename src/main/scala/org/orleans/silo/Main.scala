@@ -1,15 +1,15 @@
-package main.scala.org.orleans.silo
+package org.orleans.silo
 
 import ch.qos.logback.classic.Level
-import main.scala.org.orleans.silo.Master.MasterConfig
-import main.scala.org.orleans.silo.Slave.SlaveConfig
+import org.orleans.silo.Master.MasterConfig
+import org.orleans.silo.Slave.SlaveConfig
 
 import scala.concurrent.ExecutionContext
 
 object Main {
 
   def main(args: Array[String]): Unit = {
-    setLevel(Level.DEBUG) // The debug level might give a little bit too much info.
+    setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
     /**
       * A simple test-scenario is run here.
@@ -34,14 +34,14 @@ object Main {
     println(master.getSlaves())
 
     // Stop one slave.
-    slave.stop()
-    Thread.sleep(1000 * 15)
+    //slave.stop()
+    //Thread.sleep(1000 * 15)
 
     // See if the awareness is updated.
-    println(master.getSlaves())
+    //println(master.getSlaves())
 
     // Stop all by stopping the master.
-    master.stop()
+    //master.stop()
   }
 
   /** Very hacky way to set the log level */

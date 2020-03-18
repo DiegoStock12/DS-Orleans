@@ -17,7 +17,6 @@ import scala.concurrent.Future
 class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, GrainDescriptor])
     extends GrainSearchGrpc.GrainSearch
     with LazyLogging {
-
   logger.debug("Created the class with the map ")
   grainMap.forEach((k, v) => logger.debug(k + ":" + v))
 

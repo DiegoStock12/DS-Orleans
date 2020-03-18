@@ -1,16 +1,16 @@
-package main.scala.org.orleans.silo
+package org.orleans.silo
 import java.util.UUID
 import java.util.logging.Logger
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import main.scala.org.orleans.silo.Master.MasterConfig
-import main.scala.org.orleans.silo.Slave.SlaveConfig
-import org.orleans.silo.Services.Impl.ActivateGrainImpl
-import org.orleans.silo.Test.GreeterImpl
+import org.orleans.silo.Master.MasterConfig
+import org.orleans.silo.Slave.SlaveConfig
+import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl, GreeterImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.communication.ConnectionProtocol._
+import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.hello.GreeterGrpc
 import org.orleans.silo.utils.GrainDescriptor
 
@@ -92,15 +92,18 @@ class Slave(slaveConfig: SlaveConfig,
       .addService(
         ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
                                              executionContext))
+        .addService(
+          CreateGrainGrpc.bindService(new CreateGrainImpl("slave", null),
+            executionContext))
       // Add the Greeter service for testing
       .build
       .start
 
-    ServerBuilder
-      .forPort(50400)
-      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext))
-      .build
-      .start
+//    ServerBuilder
+//      .forPort(50400)
+//      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext))
+//      .build
+//      .start
 
     logger.info(
       "Slave server started, listening on port " + slaveConfig.rcpPort)

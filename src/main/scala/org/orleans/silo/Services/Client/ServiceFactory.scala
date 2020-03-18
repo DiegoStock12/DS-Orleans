@@ -5,6 +5,7 @@ import org.orleans.silo.Services.Service
 import org.orleans.silo.Services.Service.Service
 import org.orleans.silo.Test.GreeterClient
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
+import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.hello.GreeterGrpc
 
@@ -19,7 +20,7 @@ object ServiceFactory {
    *
    * @param service service type from the defined ones
    */
-  def getService(service: Service, serverAddress: String, serverPort: Int): ServiceClient = {
+  def getService(service: Service, serverAddress: String, serverPort: Int, stubType : String= "async" ): ServiceClient = {
     val c = ManagedChannelBuilder.forAddress(serverAddress, serverPort).usePlaintext().build()
     service match {
       case Service.Hello =>
@@ -31,6 +32,8 @@ object ServiceFactory {
       case Service.GrainSearch =>
         val stub = GrainSearchGrpc.stub(c)
         new SearchServiceClient(c, stub)
+      case Service.CreateGrain =>
+        new CreateGrainClient(c,stubType)
     }
   }
 }

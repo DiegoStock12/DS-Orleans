@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package org.orleans.silo;
+
+// Create grain
+service CreateGrain {
+    rpc CreateGrain (CreationRequest) returns (CreationResponse) {
+    }
+}
+
+// Petition to create a grain for a certain service
+message CreationRequest {
+    int32 serviceId = 1;
+    string serviceDefinition = 2;
+}
+
+//Response with the data of the new service
+message CreationResponse {
+    string id = 1;
+    string serverAddress = 2;
+    int32 serverPort = 3;
+}

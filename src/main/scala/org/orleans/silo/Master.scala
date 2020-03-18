@@ -1,21 +1,14 @@
-package main.scala.org.orleans.silo
+package org.orleans.silo
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import main.scala.org.orleans.silo.Master.MasterConfig
-import org.orleans.silo.Services.Impl.{GrainSearchImpl, UpdateStateServiceImpl}
-import org.orleans.silo.communication.ConnectionProtocol.{
-  Packet,
-  PacketType,
-  SlaveInfo
-}
+import org.orleans.silo.Master.MasterConfig
+import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateStateServiceImpl}
+import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
+import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
 import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
@@ -77,6 +70,7 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
     val masterThread = new Thread(this)
     masterThread.setName(f"master-$shortId")
     masterThread.start()
+    startgRPC()
   }
 
   /**
@@ -93,6 +87,9 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
       .addService(
         UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
                                                 executionContext))
+      .addService(
+        CreateGrainGrpc.bindService(new CreateGrainImpl("master", grainMap),
+          executionContext))
       .build
       .start
 
