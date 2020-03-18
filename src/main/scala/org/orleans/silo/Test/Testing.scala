@@ -1,4 +1,4 @@
-package org.orleans.silo.Test
+package org.orleans.silo.T
 
 import org.orleans.silo.Services.Grain.GrainFactory
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -6,7 +6,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-object Test {
+object Testing {
   // Just a test for the new Service client
   def main(args: Array[String]): Unit = {
     // get the serviceClientFactory with localhost and default port as parameters
