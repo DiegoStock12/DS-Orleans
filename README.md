@@ -197,7 +197,7 @@ Apart from those gRPC services, there should be a common ground that all grain i
 
 The slave runtime is a thread running as a daemon in the slaves that is made accessible (passed by reference) to all the grains running on the slave so they can access it. Among the necessary tasks to be performed by this runtime are:
 
-1. Keeing a `ConcurrentMap` mapping service Id's to port, that is periodically sent to the Master as an update
+1. Keeping a `ConcurrentMap` mapping service Id's to port, that is periodically sent to the Master as an update
 2. Allow **grains access to this map**, so they can see in which port a certain grain is accessible whenever a grain has to communicate with other grain
 3. In case the grains that need to communicate are in different slaves, the runtime should also **provide an index of grains in other servers** or at least guide the grain to find the "foreigner" grain.
 4. For that reason, the **runtimes of different slaves should communicate constantly or periodically** in an efficient manner, or maybe having the master relay the info received by other slaves to the rest of them , to increase communication efficiency.
