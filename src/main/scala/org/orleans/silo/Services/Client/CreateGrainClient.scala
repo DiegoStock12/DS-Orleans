@@ -28,14 +28,9 @@ class CreateGrainClient(val channel: ManagedChannel,
   }
 
   // Returns a future so it's more async
-  def createGrain(serviceId: Int,
-                  serviceName: String): Future[CreationResponse] = {
-    logger.info(
-      "Sending request to create grain of service " + Service.values.toList(
-        serviceId))
+  def createGrain(serviceName: String): Future[CreationResponse] = {
     logger.info("Sending service implementation " + serviceName)
-    val request = CreationRequest(serviceId = Service.CreateGrain.id,
-                                  serviceDefinition = serviceName)
+    val request = CreationRequest(serviceDefinition = serviceName)
     println(request)
 
     stubType match {

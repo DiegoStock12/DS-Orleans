@@ -10,7 +10,6 @@ service CreateGrain {
 
 // Petition to create a grain for a certain service
 message CreationRequest {
-    int32 serviceId = 1;
     string serviceDefinition = 2;
 }
 
