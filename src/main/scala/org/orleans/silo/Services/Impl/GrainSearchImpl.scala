@@ -5,14 +5,19 @@ import java.util.concurrent.ConcurrentHashMap
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Client.{ActivateGrainClient, ServiceFactory}
 import org.orleans.silo.Services.Service
-import org.orleans.silo.grainSearch.{GrainSearchGrpc, SearchRequest, SearchResult}
+import org.orleans.silo.grainSearch.{
+  GrainSearchGrpc,
+  SearchRequest,
+  SearchResult
+}
 import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
 
 import scala.concurrent.Future
+
 /**
- * Implementation of the searchGrain service. The service is binded on the gRPC server
- * and searchGrain can be called through remote call.
- */
+  * Implementation of the searchGrain service. The service is binded on the gRPC server
+  * and searchGrain can be called through remote call.
+  */
 //TODO Make the grainMap ConcurrentHashMap[String, List(GrainDescriptor)]
 class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, GrainDescriptor])
     extends GrainSearchGrpc.GrainSearch
@@ -35,15 +40,15 @@ class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, GrainDescriptor])
       if (GrainState.InMemory.equals(grain.state)) {
         // Send the reply
         reply = SearchResult(serverAddress = slaveDetails.address,
-          serverPort = slaveDetails.port)
+                             serverPort = slaveDetails.port)
       } else {
         //Activate the grain and send the reply
-        val client = ServiceFactory.getService(Service.ActivateGrain, slaveDetails.address, slaveDetails.port)
-          .asInstanceOf[ActivateGrainClient]
+        val client = ServiceFactory.activateGrainService(slaveDetails.address,
+                                                         slaveDetails.port)
         //TODO Handle response from the slave
         client.activateGrain(id)
         reply = SearchResult(serverAddress = slaveDetails.address,
-          serverPort = slaveDetails.port)
+                             serverPort = slaveDetails.port)
       }
       Future.successful(reply)
     } else {
