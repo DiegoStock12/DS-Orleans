@@ -11,59 +11,62 @@ import org.orleans.silo.createGrain.CreateGrainGrpc.CreateGrain
 import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.utils.GrainDescriptor
 import java.util.concurrent.Executors.newSingleThreadExecutor
-W
+
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
- * This class behaves differently depending on whether the executing server
- * is a master or a slave
- *
- * @param serverType master or slave
- */
+  * This class behaves differently depending on whether the executing server
+  * is a master or a slave
+  *
+  * @param serverType master or slave
+  */
 class CreateGrainImpl(val serverType: String,
                       val grainMap: ConcurrentHashMap[String, GrainDescriptor])
-  extends CreateGrain
+    extends CreateGrain
     with LazyLogging {
 
   logger.info("Started createGrain service in " + serverType)
 
   /**
-   * Depending on the server type, either relay to a slave or create
-   * the new grain while checking the runtime
-   *
-   * @param request
-   * @return
-   */
-  override def createGrain(request: CreationRequest): Future[CreationResponse] = {
+    * Depending on the server type, either relay to a slave or create
+    * the new grain while checking the runtime
+    *
+    * @param request
+    * @return
+    */
+  override def createGrain(
+      request: CreationRequest): Future[CreationResponse] = {
     serverType match {
       case "master" => relayPetition(request)
-      case "slave" => createNewGrain(request)
+      case "slave"  => createNewGrain(request)
     }
   }
 
   /**
-   * In case it's the master service executing this, we simply relay the
-   * petition to the server
-   *
-   * @return
-   */
-  private def relayPetition(request: CreationRequest): Future[CreationResponse] = {
+    * In case it's the master service executing this, we simply relay the
+    * petition to the server
+    *
+    * @return
+    */
+  private def relayPetition(
+      request: CreationRequest): Future[CreationResponse] = {
     logger.info("Relaying to slave")
-    val c: CreateGrainClient = ServiceFactory
-      .getService(Service.CreateGrain, "localhost", 50060, stubType = "sync")
-      .asInstanceOf[CreateGrainClient]
-    val f: Future[CreationResponse] = c.createGrain(serviceId = request.service,
+    val c: CreateGrainClient =
+      ServiceFactory.createGrainService("localhost", 50060, stubType = "sync")
+    val f: Future[CreationResponse] = c.createGrain(
+      serviceId = request.serviceId,
       serviceName = request.serviceDefinition)
     f
   }
 
   /**
-   * Actually create a new grain looking at the free ports in the system
-   *
-   * @param request
-   * @return
-   */
-  private def createNewGrain(request: CreationRequest): Future[CreationResponse] = {
+    * Actually create a new grain looking at the free ports in the system
+    *
+    * @param request
+    * @return
+    */
+  private def createNewGrain(
+      request: CreationRequest): Future[CreationResponse] = {
     // get the service name (i.e CreateGrain -> maybe its CreateGrainGrpc.CreateGrain)
     logger.info("Creating the grain in the slave")
     println(request)
@@ -77,26 +80,35 @@ class CreateGrainImpl(val serverType: String,
 
     // Get the actual interface for that object
     val serviceInterfaceName: Class[_] = Class
-      .forName("org.orleans.silo.hello." + request.serviceDefinition + "Grpc$" + request.serviceDefinition)
-
+      .forName(
+        "org.orleans.silo.hello." + request.serviceDefinition + "Grpc$" + request.serviceDefinition)
 
     //println("Methods = " + serviceDefinitionClass.getDeclaredMethods.foreach(println))
     // Get the bindService method
     val binder: Method = serviceDefinitionClass
-      .getDeclaredMethod("bindService", serviceInterfaceName, classOf[ExecutionContext])
+      .getDeclaredMethod("bindService",
+                         serviceInterfaceName,
+                         classOf[ExecutionContext])
     binder.setAccessible(true)
 
+    val impl = Class
+      .forName(
+        "org.orleans.silo.Services.Impl." + request.serviceDefinition + "Impl")
+      .getDeclaredConstructor()
+      .newInstance()
 
-    val impl = Class.forName("org.orleans.silo.Services.Impl." + request.serviceDefinition + "Impl")
-      .getDeclaredConstructor().newInstance()
-
-    val ssd: ServerServiceDefinition = binder.invoke(null, impl.asInstanceOf[Object],
-      ExecutionContext.fromExecutorService(newSingleThreadExecutor).asInstanceOf[Object])
+    val ssd: ServerServiceDefinition = binder
+      .invoke(null,
+              impl.asInstanceOf[Object],
+              ExecutionContext
+                .fromExecutorService(newSingleThreadExecutor)
+                .asInstanceOf[Object])
       .asInstanceOf[ServerServiceDefinition]
 
     // TODO look at the port map of the Slave Runtime
     val port = getFreePort()
-    ServerBuilder.forPort(port)
+    ServerBuilder
+      .forPort(port)
       .addService(ssd)
       .build
       .start
@@ -105,8 +117,8 @@ class CreateGrainImpl(val serverType: String,
   }
 
   /**
-   * Return a free port to instantiate a new grain
-   */
+    * Return a free port to instantiate a new grain
+    */
   private def getFreePort() = {
     // Now return a random number
     9000

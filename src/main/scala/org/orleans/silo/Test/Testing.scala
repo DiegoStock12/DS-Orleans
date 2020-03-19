@@ -13,13 +13,11 @@ object Testing {
   def main(args: Array[String]): Unit = {
     // get the serviceClientFactory with localhost and default port as parameters
     //    val scf = GrainFactory("localhost")
-    val client = ServiceFactory
-      .getService(Service.CreateGrain, "localhost", 50050)
-      .asInstanceOf[CreateGrainClient]
+    val client = ServiceFactory.createGrainService("localhost", 50050)
     val f = client.createGrain(Service.Hello.id, Service.Hello.toString)
-    f onComplete{
-      case Success(res) => println(res)
-      case Failure(e) => e.printStackTrace()
+    f onComplete {
+      case Success(res) => println(s"Success response $res")
+      case Failure(e)   => e.printStackTrace()
     }
 
     Thread.sleep(15000)

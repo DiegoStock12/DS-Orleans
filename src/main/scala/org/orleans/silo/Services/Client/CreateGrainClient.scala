@@ -5,15 +5,22 @@ import java.util.concurrent.TimeUnit
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.ManagedChannel
 import org.orleans.silo.Services.Service
-import org.orleans.silo.createGrain.CreateGrainGrpc.{CreateGrainBlockingStub, CreateGrainStub}
-import org.orleans.silo.createGrain.{CreateGrainGrpc, CreationRequest, CreationResponse}
+import org.orleans.silo.createGrain.CreateGrainGrpc.{
+  CreateGrainBlockingStub,
+  CreateGrainStub
+}
+import org.orleans.silo.createGrain.{
+  CreateGrainGrpc,
+  CreationRequest,
+  CreationResponse
+}
 import org.orleans.silo.grainSearch.{SearchRequest, SearchResult}
 
 import scala.concurrent.Future
 
 class CreateGrainClient(val channel: ManagedChannel,
                         val stubType: String = "async")
-  extends ServiceClient
+    extends ServiceClient
     with LazyLogging {
 
   def shutdown(): Unit = {
@@ -21,11 +28,14 @@ class CreateGrainClient(val channel: ManagedChannel,
   }
 
   // Returns a future so it's more async
-  def createGrain(serviceId: Int, serviceName: String): Future[CreationResponse] = {
-    logger.info("Sending request to create grain of service " + Service.values.toList(serviceId))
-    logger.info("Sending service implementation "+serviceName)
-    val request = CreationRequest(service = Service.CreateGrain.id,
-      serviceDefinition = serviceName)
+  def createGrain(serviceId: Int,
+                  serviceName: String): Future[CreationResponse] = {
+    logger.info(
+      "Sending request to create grain of service " + Service.values.toList(
+        serviceId))
+    logger.info("Sending service implementation " + serviceName)
+    val request = CreationRequest(serviceId = Service.CreateGrain.id,
+                                  serviceDefinition = serviceName)
     println(request)
 
     stubType match {
@@ -43,6 +53,5 @@ class CreateGrainClient(val channel: ManagedChannel,
     }
 
   }
-
 
 }
