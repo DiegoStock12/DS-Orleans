@@ -34,6 +34,7 @@ class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, List[GrainDescript
       val activeGrains: List[GrainDescriptor] = grains.filter(grain => GrainState.InMemory.equals(grain.state))
 
       if (activeGrains.nonEmpty) {
+        logger.debug("Found activated grain")
         // If there is slave where the grain is activated, talk to this node
         //TODO Add some logic for chosing the slave
         val chosenSlave: SlaveDetails = activeGrains.head.location
@@ -47,7 +48,7 @@ class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, List[GrainDescript
         val client = ServiceFactory.getService(Service.ActivateGrain, chosenSlave.address, chosenSlave.port)
           .asInstanceOf[ActivateGrainClient]
 
-        // Wait for the reponse
+        // Wait for the response. We want the activation request to be the blocking one.
         val activationSuccess: Boolean = client.activateGrain(id)
         if (activationSuccess) {
           reply = SearchResult(serverAddress = chosenSlave.address,

@@ -85,13 +85,13 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",
-      List(GrainDescriptor(GrainState.InMemory, SlaveDetails("localhost", 50400))))
+      List(GrainDescriptor(GrainState.Persisted, SlaveDetails("localhost", 50040))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
       .addService(
-        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
+        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(grainMap),
                                                 executionContext))
       .build
       .start

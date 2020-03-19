@@ -7,15 +7,9 @@ service UpdateGrainStateService{
 }
 
 message UpdateStateRequest{
-    int64 grainId = 100;
-    enum State {
-        InMemory = 0;
-        Persisted = 1;
-        Activating = 2;
-        Deactivating = 3;
-    }
-    State state = 1;
-
+    string grainId = 1;
+    string state = 2;
+    string sourceIP = 3;
 }
 
 message UpdateSuccess{

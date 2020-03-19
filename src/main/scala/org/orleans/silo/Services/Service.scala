@@ -5,5 +5,5 @@ package org.orleans.silo.Services
  */
 object Service extends Enumeration {
   type Service = Value
-  val ActivateGrain, GrainSearch , Hello = Value
+  val ActivateGrain, GrainSearch , Hello, GrainStatusUpdate = Value
 }

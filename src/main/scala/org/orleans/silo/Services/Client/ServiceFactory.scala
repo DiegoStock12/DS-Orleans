@@ -7,6 +7,7 @@ import org.orleans.silo.Test.GreeterClient
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.hello.GreeterGrpc
+import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
 
 
 /**
@@ -31,6 +32,9 @@ object ServiceFactory {
       case Service.GrainSearch =>
         val stub = GrainSearchGrpc.stub(c)
         new SearchServiceClient(c, stub)
+      case Service.GrainStatusUpdate =>
+        val stub = UpdateGrainStateServiceGrpc.stub(c)
+        new UpdateGrainStateClient(c, stub)
     }
   }
 }
