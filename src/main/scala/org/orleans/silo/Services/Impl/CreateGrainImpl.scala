@@ -11,7 +11,6 @@ import org.orleans.silo.createGrain.CreateGrainGrpc.CreateGrain
 import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.utils.GrainDescriptor
 import java.util.concurrent.Executors.newSingleThreadExecutor
-
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
