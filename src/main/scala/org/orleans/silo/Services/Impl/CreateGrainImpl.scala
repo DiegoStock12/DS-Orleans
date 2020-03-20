@@ -12,6 +12,8 @@ import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.utils.GrainDescriptor
 import java.util.concurrent.Executors.newSingleThreadExecutor
 
+import org.orleans.silo.hello.GreeterGrpc
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
 
@@ -21,11 +23,8 @@ import scala.util.Random
  * infer the classes of the services
  */
 object CreateGrainImpl{
-  val SERVICE_DEFINITION_PACKAGE = "org.orleans.silo."
-  val SERVICE_IMPLEMENTATION_PACKAGE = "org.orleans.silo.Services.Impl."
   val GRPC_SUFFIX = "Grpc"
   val GRPC_SUBCLASS_SUFFIX = "Grpc$"
-  val IMPLEMENTATION_SUFFIX = "Impl"
   val SERVICE_BINDER = "bindService"
 }
 
@@ -67,10 +66,11 @@ class CreateGrainImpl(val serverType: String,
   private def relayPetition(
       request: CreationRequest): Future[CreationResponse] = {
     logger.info("Relaying to slave")
+    // TODO we should look for the least loaded slave to send the info to
     val c: CreateGrainClient =
       ServiceFactory.createGrainService("localhost", 50060, stubType = "sync")
     // Just relay the request
-    val f: Future[CreationResponse] = c.createGrain(request.serviceDefinition)
+    val f: Future[CreationResponse] = c.createGrain(request)
     f
   }
 
@@ -83,15 +83,18 @@ class CreateGrainImpl(val serverType: String,
   private def createNewGrain(
       request: CreationRequest): Future[CreationResponse] = {
     logger.info("Creating the grain in the slave")
+    // Info necessary for reflection of the service
+    val packageName = request.packageName
+    val serviceName = request.serviceName
 
     // TODO find an elegant solution to the package name insise the ServiceFolder
     val serviceDefinitionClass: Class[_] = Class
-      .forName(SERVICE_DEFINITION_PACKAGE +"hello."+ request.serviceDefinition + GRPC_SUFFIX)
+      .forName(packageName +"."+ serviceName + GRPC_SUFFIX)
 
     // Get the actual interface for that object
     val serviceInterfaceName: Class[_] = Class
       .forName(
-        SERVICE_DEFINITION_PACKAGE +"hello."+ request.serviceDefinition + GRPC_SUBCLASS_SUFFIX + request.serviceDefinition)
+        packageName +"."+ serviceName + GRPC_SUBCLASS_SUFFIX + serviceName)
 
     // Get the bindService method
     val binder: Method = serviceDefinitionClass
@@ -103,7 +106,7 @@ class CreateGrainImpl(val serverType: String,
     // Get the service implementation that should run on that port
     val impl = Class
       .forName(
-        SERVICE_IMPLEMENTATION_PACKAGE + request.serviceDefinition + IMPLEMENTATION_SUFFIX)
+         request.implementationPackage +"."+ request.implementationName)
       .getDeclaredConstructor()
       .newInstance()
 

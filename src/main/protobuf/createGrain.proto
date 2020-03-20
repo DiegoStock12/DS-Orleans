@@ -10,7 +10,10 @@ service CreateGrain {
 
 // Petition to create a grain for a certain service
 message CreationRequest {
-    string serviceDefinition = 2;
+    string serviceName = 1;
+    string packageName = 2;
+    string implementationName= 3;
+    string implementationPackage = 4;
 }
 
 //Response with the data of the new service

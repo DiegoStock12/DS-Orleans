@@ -6,7 +6,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Master.MasterConfig
 import org.orleans.silo.Slave.SlaveConfig
-import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl, GreeterImpl}
+import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.communication.ConnectionProtocol._

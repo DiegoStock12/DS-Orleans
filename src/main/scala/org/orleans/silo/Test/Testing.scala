@@ -4,6 +4,8 @@ import org.orleans.silo.Services.Client.ServiceFactory
 import org.orleans.silo.Services.Service
 import org.orleans.silo.hello.GreeterGrpc
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
@@ -13,23 +15,14 @@ object Testing {
     // get the serviceClientFactory with localhost and default port as parameters
     //    val scf = GrainFactory("localhost")
     val client = ServiceFactory.createGrainService("localhost", 50050)
-    val f = client.createGrain(Service.Hello.toString)
+    val f = client.createGrain[GreeterGrpc.Greeter, GreeterGrain]()
+    Await.result(f, 10 seconds)
     f onComplete {
       case Success(res) => println(s"Success response $res")
       case Failure(e)   => e.printStackTrace()
     }
 
-    Thread.sleep(15000)
-    // Get the Future for the Stub of the GreeterService
-    //    val f = scf.getGrain(id = "diegoalbo").asInstanceOf[Future[GreeterClient]]
-    //    println("Waiting for the result")
-    //    f onComplete{
-    //      case Success(client) =>
-    //        client.greet("Diego!!")
-    //      case Failure(exception) => exception.printStackTrace()
-    //    }
-    //
-    //    Thread.sleep(10000)
+    //Thread.sleep(15000)
 
   }
 }
