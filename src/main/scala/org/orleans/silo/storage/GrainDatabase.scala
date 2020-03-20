@@ -1,6 +1,7 @@
 package org.orleans.silo.storage
 
-import org.orleans.common.Grain
+
+import org.orleans.silo.Services.Grain.Grain
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag

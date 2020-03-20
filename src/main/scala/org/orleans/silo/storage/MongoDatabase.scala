@@ -5,8 +5,9 @@ import com.typesafe.scalalogging.LazyLogging
 import org.json4s.jackson.Serialization
 import org.json4s.{DefaultFormats, FieldSerializer, Formats}
 import org.mongodb.scala.model.Filters._
+import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.mongodb.scala.{MongoClient, _}
-import org.orleans.common.Grain
+import org.orleans.silo.Services.Grain.Grain
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -16,7 +17,7 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
-class TestGrain(val id: String, val someField: String) extends Grain {
+class TestGrain(id: String, val someField: String) extends Grain(id) {
   override def store(): Unit = {}
 
   override def toString = s"TestGrain($id, $someField)"
@@ -25,13 +26,13 @@ class TestGrain(val id: String, val someField: String) extends Grain {
 object DatabaseConnectionTest {
 
   def main(args: Array[String]): Unit = {
-    val grain = new TestGrain("103", "testtesttest")
+    val grain = new TestGrain("104", "testtesttest")
 
     MongoDatabase.store(grain)
 
     Thread.sleep(3000)
 
-    val result = MongoDatabase.load[TestGrain]("103")
+    val result = MongoDatabase.load[TestGrain]("104")
     result.onComplete {
       case Success(value) =>
         println("Success - value: " + value)
@@ -42,7 +43,7 @@ object DatabaseConnectionTest {
 
     Await.result(result, 10 seconds)
 
-    Thread.sleep(1000)
+    Thread.sleep(10000)
     MongoDatabase.close()
   }
 
@@ -62,7 +63,7 @@ object MongoDatabase extends GrainDatabase with LazyLogging {
     implicit val format: Formats = DefaultFormats + FieldSerializer[T]()
     val jsonString = Serialization.write(grain)(format)
 
-    grainCollection.insertOne(Document(jsonString))
+    grainCollection.findOneAndUpdate(equal("id", grain.id), Document(jsonString), FindOneAndUpdateOptions().upsert(true))
   }
 
   override def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T] = Future {
