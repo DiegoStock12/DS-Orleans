@@ -25,11 +25,13 @@ class TestGrain(val id: String, val someField: String) extends Grain {
 object DatabaseConnectionTest {
 
   def main(args: Array[String]): Unit = {
-    val grain = new TestGrain("102", "testtesttest")
+    val grain = new TestGrain("103", "testtesttest")
 
     MongoDatabase.store(grain)
 
-    val result = MongoDatabase.load[TestGrain]("102")
+    Thread.sleep(3000)
+
+    val result = MongoDatabase.load[TestGrain]("103")
     result.onComplete {
       case Success(value) =>
         println("Success - value: " + value)
@@ -54,7 +56,7 @@ object MongoDatabase extends GrainDatabase with LazyLogging {
   private val grainCollection: MongoCollection[Document] = database.getCollection("grain")
 
   // Set the log level for mongodb to ERROR
-  LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
+//  LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
 
   override def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Unit = {
     implicit val format: Formats = DefaultFormats + FieldSerializer[T]()
