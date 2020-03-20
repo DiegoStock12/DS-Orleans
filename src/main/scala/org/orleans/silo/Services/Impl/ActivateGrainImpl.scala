@@ -1,19 +1,20 @@
 package org.orleans.silo.Services.Impl
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.common.Grain
-import org.orleans.silo.activateGrain.{
-  ActivateGrainServiceGrpc,
-  ActivateRequest,
-  ActivationSuccess
-}
+import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.activateGrain.{ActivateGrainServiceGrpc, ActivateRequest, ActivationSuccess}
 
 import scala.concurrent.Future
 
+/**
+ * Implementation of the activateGrain service. The service is binded on the gRPC server
+ * and activateGrain can be called through remote call.
+ */
 class ActivateGrainImpl
     extends ActivateGrainServiceGrpc.ActivateGrainService
     with LazyLogging {
 
+  //TODO Rethink activatng the grain when persistent storage is available
   override def activateGrain(
       request: ActivateRequest): Future[ActivationSuccess] = {
     logger.debug("Activating grain " + request.name)
