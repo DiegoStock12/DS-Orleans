@@ -1,5 +1,6 @@
 package org.orleans.silo.Services.Grain
 
-trait Grain extends Serializable {
-  def store()
+abstract class Grain extends Serializable {
+  var id = "test"
+  def store();
 }

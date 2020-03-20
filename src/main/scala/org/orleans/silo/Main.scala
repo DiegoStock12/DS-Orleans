@@ -3,6 +3,7 @@ package org.orleans.silo
 import ch.qos.logback.classic.Level
 import org.orleans.silo.Master.MasterConfig
 import org.orleans.silo.Slave.SlaveConfig
+import org.orleans.silo.utils.ServerConfig
 
 import scala.concurrent.ExecutionContext
 
@@ -15,9 +16,9 @@ object Main {
       * A simple test-scenario is run here.
       */
     val master =
-      new Master(MasterConfig("localhost", 123, 50050), ExecutionContext.global)
-    val slave = new Slave(SlaveConfig("localhost", 124, 50060),
-                          MasterConfig("localhost", 123),
+      new Master(ServerConfig("localhost", 2000, 50050), ExecutionContext.global)
+    val slave = new Slave(ServerConfig("localhost", 2001, 50060),
+                          ServerConfig("localhost", 2000, 50050),
                           ExecutionContext.global)
     //slave.start()
     //slave2.start()

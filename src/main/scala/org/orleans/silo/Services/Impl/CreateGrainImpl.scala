@@ -12,7 +12,10 @@ import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.utils.GrainDescriptor
 import java.util.concurrent.Executors.newSingleThreadExecutor
 
+import org.orleans.silo.runtime.Runtime
+import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.hello.GreeterGrpc
+import org.orleans.silo.runtime.Runtime.GrainInfo
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
@@ -34,8 +37,8 @@ object CreateGrainImpl{
   *
   * @param serverType master or slave
   */
-class CreateGrainImpl(val serverType: String,
-                      val grainMap: ConcurrentHashMap[String, GrainDescriptor])
+class CreateGrainImpl (private val serverType: String,
+                       private val runtime : Runtime)
     extends CreateGrain
     with LazyLogging {
 
@@ -87,23 +90,24 @@ class CreateGrainImpl(val serverType: String,
     val packageName = request.packageName
     val serviceName = request.serviceName
 
-    // TODO find an elegant solution to the package name insise the ServiceFolder
     val serviceDefinitionClass: Class[_] = Class
       .forName(packageName +"."+ serviceName + GRPC_SUFFIX)
 
     // Get the actual interface for that object
-    val serviceInterfaceName: Class[_] = Class
+    val serviceInterface: Class[_] = Class
       .forName(
         packageName +"."+ serviceName + GRPC_SUBCLASS_SUFFIX + serviceName)
 
     // Get the bindService method
     val binder: Method = serviceDefinitionClass
       .getDeclaredMethod(SERVICE_BINDER,
-                         serviceInterfaceName,
+                         serviceInterface,
                          classOf[ExecutionContext])
     binder.setAccessible(true)
 
     // Get the service implementation that should run on that port
+    // This is the object of which we keep a reference in the map
+    // so we can check its status
     val impl = Class
       .forName(
          request.implementationPackage +"."+ request.implementationName)
@@ -122,12 +126,21 @@ class CreateGrainImpl(val serverType: String,
 
     // Get a port and an id for the new service and create it
     val id = UUID.randomUUID().toString
-    val port = getFreePort()
+    val port = runtime.getFreePort
+
+    // Start the grain
     ServerBuilder
       .forPort(port)
       .addService(ssd)
       .build
       .start
+
+    // Save the grain information in the runtime
+    // TODO the state should be an enum
+    runtime.grainMap.put(port, GrainInfo(id, "Activated", impl.asInstanceOf[Grain]))
+    runtime.grainMap.forEach((k,v) => logger.info(s"$k --> $v"))
+
+    Thread.sleep(500)
 
     // Return a response
     val response = CreationResponse(id, "localhost", port)

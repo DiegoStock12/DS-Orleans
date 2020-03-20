@@ -10,8 +10,9 @@ import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateS
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
+import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
-import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
+import org.orleans.silo.utils.{GrainDescriptor, GrainState, ServerConfig, SlaveDetails}
 
 import scala.concurrent.ExecutionContext
 
@@ -26,7 +27,7 @@ object Master {
   * @param host the host of this server.
   * @param udpPort the UDP port for low-level communication.
   */
-class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
+class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -54,6 +55,9 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
+  // Runtime object that keeps track of grain activity
+  val runtime : Runtime = new Runtime(masterConfig)
+
   /**
     * Starts the master.
     * - Creates a main control loop to keep track of slaves and send heartbeats.
@@ -70,6 +74,12 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
     val masterThread = new Thread(this)
     masterThread.setName(f"master-$shortId")
     masterThread.start()
+
+    // Start runtime thread
+    val runtimeThread = new Thread(runtime)
+    runtimeThread.setName("runtime")
+    runtimeThread.start()
+
     startgRPC()
   }
 
@@ -88,7 +98,7 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
         UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
                                                 executionContext))
       .addService(
-        CreateGrainGrpc.bindService(new CreateGrainImpl("master", grainMap),
+        CreateGrainGrpc.bindService(new CreateGrainImpl("master", runtime),
           executionContext))
       .build
       .start

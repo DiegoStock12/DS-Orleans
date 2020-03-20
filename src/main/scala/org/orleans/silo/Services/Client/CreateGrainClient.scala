@@ -4,16 +4,12 @@ import java.util.concurrent.{AbstractExecutorService, TimeUnit}
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.ManagedChannel
-import org.orleans.silo.Services.Service
-import org.orleans.silo.createGrain.CreateGrainGrpc.{CreateGrainBlockingStub, CreateGrainStub}
 import org.orleans.silo.createGrain.{CreateGrainGrpc, CreationRequest, CreationResponse}
-import org.orleans.silo.grainSearch.{SearchRequest, SearchResult}
 import scalapb.grpc.AbstractService
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect._
-import _root_.io.grpc.stub.InternalClientCalls.StubType
 import org.orleans.silo.Services.Grain.Grain
 
 class CreateGrainClient(val channel: ManagedChannel,
@@ -32,8 +28,8 @@ class CreateGrainClient(val channel: ManagedChannel,
    * @tparam I Implementation of the service
    * @return
    */
-  def createGrain[T <: AbstractService with AnyRef: ClassTag,
-                  I <: Grain with AnyRef : ClassTag](): Future[CreationResponse] = {
+  def createGrain[T <: AbstractService with AnyRef : ClassTag,
+    I <: Grain with AnyRef : ClassTag](): Future[CreationResponse] = {
     logger.info("Sending service implementation " + classTag[T].runtimeClass)
     // Build a request with the desired info so we can reflect the class
     val request = CreationRequest(serviceName = classTag[T].runtimeClass.getSimpleName,
@@ -42,7 +38,6 @@ class CreateGrainClient(val channel: ManagedChannel,
       implementationPackage = classTag[I].runtimeClass.getPackage.getName)
     println(request)
     sendRequest(request, stubType)
-    //Future.successful(new CreationResponse())
   }
 
   /**
@@ -54,6 +49,7 @@ class CreateGrainClient(val channel: ManagedChannel,
   def createGrain(creationRequest: CreationRequest): Future[CreationResponse] = {
     sendRequest(creationRequest, stubType)
   }
+
 
   /**
    * Send request in an async or sync mode

@@ -11,8 +11,8 @@ import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.createGrain.CreateGrainGrpc
-import org.orleans.silo.hello.GreeterGrpc
-import org.orleans.silo.utils.GrainDescriptor
+import org.orleans.silo.runtime.Runtime
+import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -27,8 +27,8 @@ object Slave {
   * @param udpPort the UDP port for low-level communication.
   * @param masterConfig configuration to connect to the master.
   */
-class Slave(slaveConfig: SlaveConfig,
-            masterConfig: MasterConfig,
+class Slave(slaveConfig: ServerConfig,
+            masterConfig: ServerConfig,
             executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
@@ -63,6 +63,8 @@ class Slave(slaveConfig: SlaveConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
+  // Runtime object that keeps track of grain activity
+  val runtime : Runtime = new Runtime(slaveConfig)
   /**
     * Starts the slave.
     * - Creates a main control loop to send information to the master.
@@ -80,7 +82,13 @@ class Slave(slaveConfig: SlaveConfig,
     slaveThread.setName(f"slave-$shortId")
     slaveThread.start()
 
+    // Start runtime thread
+    val runtimeThread = new Thread(runtime)
+    runtimeThread.setName("runtime")
+    runtimeThread.start()
+
     startgRPC()
+
   }
 
   /**
@@ -93,7 +101,7 @@ class Slave(slaveConfig: SlaveConfig,
         ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
                                              executionContext))
         .addService(
-          CreateGrainGrpc.bindService(new CreateGrainImpl("slave", null),
+          CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
             executionContext))
       // Add the Greeter service for testing
       .build
