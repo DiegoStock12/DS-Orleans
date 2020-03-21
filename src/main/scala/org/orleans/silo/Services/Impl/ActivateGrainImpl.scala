@@ -11,12 +11,12 @@ import scala.concurrent.Future
  * and activateGrain can be called through remote call.
  */
 class ActivateGrainImpl
-    extends ActivateGrainServiceGrpc.ActivateGrainService
+  extends ActivateGrainServiceGrpc.ActivateGrainService
     with LazyLogging {
 
   //TODO Rethink activatng the grain when persistent storage is available
   override def activateGrain(
-      request: ActivateRequest): Future[ActivationSuccess] = {
+                              request: ActivateRequest): Future[ActivationSuccess] = {
     logger.debug("Activating grain " + request.name)
 
     val newActivation =

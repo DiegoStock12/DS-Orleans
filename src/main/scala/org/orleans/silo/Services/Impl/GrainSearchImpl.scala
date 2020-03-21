@@ -5,10 +5,15 @@ import java.util.concurrent.ConcurrentHashMap
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Client.{ActivateGrainClient, ServiceFactory}
 import org.orleans.silo.Services.Service
-import org.orleans.silo.grainSearch.{GrainSearchGrpc, SearchRequest, SearchResult}
+import org.orleans.silo.grainSearch.{
+  GrainSearchGrpc,
+  SearchRequest,
+  SearchResult
+}
 import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
 
 import scala.concurrent.Future
+
 /**
  * Implementation of the searchGrain service. The service is binded on the gRPC server
  * and searchGrain can be called through remote call.
@@ -16,7 +21,6 @@ import scala.concurrent.Future
 class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, List[GrainDescriptor]])
     extends GrainSearchGrpc.GrainSearch
     with LazyLogging {
-
   logger.debug("Created the class with the map ")
   grainMap.forEach((k, v) => logger.debug(k + ":" + v))
 
@@ -29,6 +33,7 @@ class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, List[GrainDescript
     if (grainMap.containsKey(id)) {
       logger.debug("Grain exists in the HashMap")
       var reply: SearchResult = SearchResult()
+
 
       val grains: List[GrainDescriptor] = grainMap.get(id)
       val activeGrains: List[GrainDescriptor] = grains.filter(grain => GrainState.InMemory.equals(grain.state))
