@@ -6,14 +6,11 @@ import org.orleans.silo.hello.{GreeterGrpc, HelloReply, HelloRequest}
 
 import scala.concurrent.Future
 
-class GreeterGrain extends Grain
+class GreeterGrain(_id: String) extends Grain(_id)
   with GreeterGrpc.Greeter
   with LazyLogging {
 
-  logger.info("Here Greeter Impl!")
-  logger.info("Setting the id")
-  this.id = "changed id"
-
+  logger.info("Greeter implementation running")
   override def sayHello(request: HelloRequest): Future[HelloReply] = {
     logger.debug("Received a request by " + request.name)
     val reply = HelloReply(message = "Hello " + request.name)

@@ -2,12 +2,11 @@ package org.orleans.silo
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Master.MasterConfig
 import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateStateServiceImpl}
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
@@ -16,17 +15,12 @@ import org.orleans.silo.utils.{GrainDescriptor, GrainState, ServerConfig, SlaveD
 
 import scala.concurrent.ExecutionContext
 
-object Master {
-  case class MasterConfig(host: String,
-                          udpPort: Int = 161,
-                          rcpPort: Int = 50050)
-}
 
 /**
-  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
-  * @param host the host of this server.
-  * @param udpPort the UDP port for low-level communication.
-  */
+ * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
+ * @param masterConfig Server configuration for the master
+ * @param executionContext Execution context for the RPC services
+ */
 class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
@@ -91,7 +85,7 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
       "diegoalbo",
       GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
     master = ServerBuilder
-      .forPort(masterConfig.rcpPort)
+      .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
       .addService(

@@ -1,15 +1,12 @@
 package org.orleans.silo
 import java.util.UUID
-import java.util.logging.Logger
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Master.MasterConfig
-import org.orleans.silo.Slave.SlaveConfig
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.communication.ConnectionProtocol._
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
@@ -17,16 +14,13 @@ import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
-object Slave {
-  case class SlaveConfig(host: String, udpPort: Int = 162, rcpPort: Int = 50060)
-}
 
 /**
-  * Slave silo. Handles request from the master.
-  * @param host the host of this server.
-  * @param udpPort the UDP port for low-level communication.
-  * @param masterConfig configuration to connect to the master.
-  */
+ * Slave silo, handles request from the master
+ * @param slaveConfig Server config for the slave
+ * @param masterConfig Config of the master server
+ * @param executionContext Execution context for the RPC services
+ */
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext)
@@ -96,7 +90,7 @@ class Slave(slaveConfig: ServerConfig,
     */
   def startgRPC() = {
     slave = ServerBuilder
-      .forPort(slaveConfig.rcpPort)
+      .forPort(slaveConfig.rpcPort)
       .addService(
         ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
                                              executionContext))
@@ -114,7 +108,7 @@ class Slave(slaveConfig: ServerConfig,
 //      .start
 
     logger.info(
-      "Slave server started, listening on port " + slaveConfig.rcpPort)
+      "Slave server started, listening on port " + slaveConfig.rpcPort)
     sys.addShutdownHook {
       logger.error("*** shutting down gRPC server since JVM is shutting down")
       // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly

@@ -1,19 +1,18 @@
 package org.orleans.silo.runtime
 
-import java.{lang, util}
 import java.util.concurrent.ConcurrentHashMap
+import java.{lang, util}
 
-import scala.collection.JavaConverters._
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
-import scala.util.Random
+import scala.collection.JavaConverters._
 
 object Runtime{
   // Class that will serve as index for the grain map
-  // TODO state should be taken from an enum
-  case class GrainInfo(id: String, state:String, grain: Grain)
+  case class GrainInfo(id: String, state:GrainState, grain: Grain)
 }
 
 /**
