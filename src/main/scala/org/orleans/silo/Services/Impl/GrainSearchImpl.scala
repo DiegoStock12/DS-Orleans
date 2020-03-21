@@ -15,11 +15,10 @@ import org.orleans.silo.utils.{GrainDescriptor, GrainState, SlaveDetails}
 import scala.concurrent.Future
 
 /**
-  * Implementation of the searchGrain service. The service is binded on the gRPC server
-  * and searchGrain can be called through remote call.
-  */
-//TODO Make the grainMap ConcurrentHashMap[String, List(GrainDescriptor)]
-class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, GrainDescriptor])
+ * Implementation of the searchGrain service. The service is binded on the gRPC server
+ * and searchGrain can be called through remote call.
+ */
+class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, List[GrainDescriptor]])
     extends GrainSearchGrpc.GrainSearch
     with LazyLogging {
   logger.debug("Created the class with the map ")
@@ -30,27 +29,41 @@ class GrainSearchImpl(val grainMap: ConcurrentHashMap[String, GrainDescriptor])
     logger.debug("Client is looking for grain " + id)
     grainMap.forEach((k, v) => logger.debug(k + " -> " + v))
 
+    // First check if there grain was ever created
     if (grainMap.containsKey(id)) {
-      logger.debug("Grain exists in the HashMap, returning success")
-      val grain: GrainDescriptor = grainMap.get(id)
-      //TODO Handle the List of GrainDescriptors if grain is present on multiple slaves
-      val slaveDetails: SlaveDetails = grain.location
+      logger.debug("Grain exists in the HashMap")
       var reply: SearchResult = SearchResult()
-      // Check if the grain is active
-      if (GrainState.InMemory.equals(grain.state)) {
-        // Send the reply
-        reply = SearchResult(serverAddress = slaveDetails.address,
-                             serverPort = slaveDetails.port)
+
+
+      val grains: List[GrainDescriptor] = grainMap.get(id)
+      val activeGrains: List[GrainDescriptor] = grains.filter(grain => GrainState.InMemory.equals(grain.state))
+
+      if (activeGrains.nonEmpty) {
+        logger.debug("Found activated grain")
+        // If there is slave where the grain is activated, talk to this node
+        //TODO Add some logic for chosing the slave
+        val chosenSlave: SlaveDetails = activeGrains.head.location
+        reply = SearchResult(serverAddress = chosenSlave.address,
+          serverPort = chosenSlave.port)
+        Future.successful(reply)
       } else {
-        //Activate the grain and send the reply
-        val client = ServiceFactory.activateGrainService(slaveDetails.address,
-                                                         slaveDetails.port)
-        //TODO Handle response from the slave
-        client.activateGrain(id)
-        reply = SearchResult(serverAddress = slaveDetails.address,
-                             serverPort = slaveDetails.port)
+        // Else choose some slave to activate the grain
+        //TODO Add some logic for chosing the slave
+        val chosenSlave: SlaveDetails = grains.head.location
+        val client = ServiceFactory.getService(Service.ActivateGrain, chosenSlave.address, chosenSlave.port)
+          .asInstanceOf[ActivateGrainClient]
+
+        // Wait for the response. We want the activation request to be the blocking one.
+        val activationSuccess: Boolean = client.activateGrain(id)
+        if (activationSuccess) {
+          reply = SearchResult(serverAddress = chosenSlave.address,
+            serverPort = chosenSlave.port)
+          Future.successful(reply)
+        } else {
+          logger.debug("Grain failed to activate on node: {}", chosenSlave.address)
+          Future.failed(new Exception("Grain activation failure"))
+        }
       }
-      Future.successful(reply)
     } else {
       logger.debug("Grain doesn't exists in the HashMap, returning failure")
       Future.failed(new Exception("Non existent grain Type"))

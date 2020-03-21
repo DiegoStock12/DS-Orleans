@@ -24,24 +24,27 @@ class ActivateGrainClient(private val channel: ManagedChannel,
     channel.shutdown.awaitTermination(5, TimeUnit.SECONDS)
   }
 
-  def activateGrain(name: String): Unit = {
-    logger.info("Will try to greet " + name + "...")
+  def activateGrain(name: String): Boolean = {
+    logger.info("Will try to activate grain " + name + "...")
     val request = ActivateRequest(name = name)
+    var reply: Boolean = false
     print(request)
     try {
       // Async test
       logger.debug("Before oncomplete")
       val f: Future[ActivationSuccess] = stub.activateGrain(request)
       f.onComplete {
-        case Success(result) => println(result.success)
-        case Failure(e)      => e.printStackTrace()
+        case Success(result) => reply = result.success
+        case Failure(e) => {
+                    reply = false
+                    logger.warn("Grain activation failed: {}", e.getMessage)}
       }
-
       logger.debug("After oncomplete")
-      Thread.sleep(10000)
+      reply
     } catch {
       case e: StatusRuntimeException =>
         logger.warn("RPC failed: {}", e.getStatus)
+        false
     }
   }
 }
