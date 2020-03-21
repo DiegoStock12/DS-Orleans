@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
 object Master {
   case class MasterConfig(host: String,
                           udpPort: Int = 161,
-                          rcpPort: Int = 50050)
+                          rpcPort: Int = 50050)
 }
 
 /**
@@ -43,8 +43,8 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
   private[this] var master: Server = null
 
   // Hashmap to save the grain references
-  private val grainMap: ConcurrentHashMap[String, GrainDescriptor] =
-    new ConcurrentHashMap[String, GrainDescriptor]()
+  private val grainMap: ConcurrentHashMap[String, List[GrainDescriptor]] =
+    new ConcurrentHashMap[String, List[GrainDescriptor]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -85,13 +85,13 @@ class Master(masterConfig: MasterConfig, executionContext: ExecutionContext)
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",
-      GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
+      List(GrainDescriptor(GrainState.Persisted, SlaveDetails("localhost", 50040))))
     master = ServerBuilder
-      .forPort(masterConfig.rcpPort)
+      .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
       .addService(
-        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
+        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(grainMap),
                                                 executionContext))
       .build
       .start
