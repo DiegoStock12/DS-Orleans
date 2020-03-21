@@ -2,9 +2,9 @@ package org.orleans.silo.storage
 
 import ch.qos.logback.classic.{Level, LoggerContext}
 import com.typesafe.scalalogging.LazyLogging
+import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
-import org.mongodb.scala.{MongoClient, _}
 import org.orleans.silo.Services.Grain.Grain
 import org.slf4j.LoggerFactory
 
@@ -21,7 +21,7 @@ class TestGrain(_id: String, val someField: String) extends Grain(_id) {
   override def toString = s"TestGrain(${_id}, $someField)"
 }
 
-object DatabaseConnectionExample {
+object DatabaseConnectionExample extends LazyLogging {
 
   def main(args: Array[String]): Unit = {
     val grain = new TestGrain("104", "newtest")
@@ -29,9 +29,9 @@ object DatabaseConnectionExample {
     val storeResult = MongoDatabase.store(grain)
     storeResult.onComplete {
       case Success(value) =>
-        println(value)
+        logger.debug(s"Succesfully stored grain. Old value of grain: $value")
       case Failure(e) =>
-        println(e)
+        logger.debug(s"Something went wrong during storing of grain. Cause: $e")
     }
 
     Await.ready(storeResult, 10 seconds)
@@ -39,10 +39,9 @@ object DatabaseConnectionExample {
     val result = MongoDatabase.load[TestGrain]("104")
     result.onComplete {
       case Success(value) =>
-        println("Success - value: " + value)
-      case Failure(exception) =>
-        println("Failure")
-        println(exception)
+        logger.debug(s"Succesfully retrieved grain: $value")
+      case Failure(e) =>
+        logger.debug(s"Something went wrong during loading of grain. Cause: $e")
     }
 
     Await.ready(result, 10 seconds)
