@@ -15,7 +15,9 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
-class TestGrain(_id: String, val someField: String) extends Grain(_id) {
+class TestGrain(_id: String) extends Grain(_id) {
+  val someField: String = "testtest"
+
   override def store(): Unit = {}
 
   override def toString = s"TestGrain(${_id}, $someField)"
@@ -24,7 +26,7 @@ class TestGrain(_id: String, val someField: String) extends Grain(_id) {
 object DatabaseConnectionExample extends LazyLogging {
 
   def main(args: Array[String]): Unit = {
-    val grain = new TestGrain("104", "newtest")
+    val grain = new TestGrain("1011")
 
     val storeResult = MongoDatabase.store(grain)
     storeResult.onComplete {
@@ -36,7 +38,7 @@ object DatabaseConnectionExample extends LazyLogging {
 
     Await.ready(storeResult, 10 seconds)
 
-    val result = MongoDatabase.load[TestGrain]("104")
+    val result = MongoDatabase.load[TestGrain]("1011")
     result.onComplete {
       case Success(value) =>
         logger.debug(s"Succesfully retrieved grain: $value")
@@ -70,7 +72,7 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Specific subtype of the grain
     * @return Returns a Future that contains the old stored grain if it was successfully stored or else an exception
     */
-  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[T] = {
+  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]] = {
     val jsonString = GrainSerializer.serialize(grain)
     logger.debug(s"Inserting or updating grain: $grain")
     val result = grainCollection.findOneAndUpdate(equal("_id", grain._id), Document("$set" -> Document(jsonString)), FindOneAndUpdateOptions().upsert(true))
@@ -78,7 +80,12 @@ object MongoDatabase extends LazyLogging {
     result.toFuture().transform {
       case Success(document) =>
         logger.debug("Succesfully stored grain! Now deserializing...")
-        Success(GrainSerializer.deserialize(document.toJson()))
+        if (document != null) {
+          Success(Some(GrainSerializer.deserialize(document.toJson())))
+        } else {
+          Success(None)
+        }
+
       case Failure(e) =>
         logger.debug("Something went wrong when storing the grain.")
         Failure(e)
