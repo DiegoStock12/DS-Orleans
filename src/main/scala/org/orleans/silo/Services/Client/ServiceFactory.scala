@@ -1,13 +1,19 @@
 package org.orleans.silo.Services.Client
 
-import io.grpc.ManagedChannelBuilder
+import scala.reflect.runtime.universe._
+import io.grpc.{ManagedChannel, ManagedChannelBuilder}
+import main.scala.org.orleans.client.OrleansRuntime
+import org.orleans.developer.TwitterAccountClient
 import org.orleans.silo.Services.Service
-import org.orleans.silo.Services.Service.Service
 import org.orleans.silo.Test.GreeterClient
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.hello.GreeterGrpc
+
+import scala.reflect.ClassTag
+import scala.reflect._
+import scala.reflect.runtime.universe._
 
 /**
   * Factory for getting the client to particular service
@@ -19,44 +25,34 @@ object ServiceFactory {
     *
     * @param service service type from the defined ones
     */
-  def getService(service: Service,
-                 serverAddress: String,
-                 serverPort: Int,
-                 stubType: String = "async"): ServiceClient = {
+  def getService[T: ClassTag](runtime: OrleansRuntime,
+                              stubType: String = "async"): T = {
     val c = ManagedChannelBuilder
-      .forAddress(serverAddress, serverPort)
+      .forAddress(runtime.getHost(), runtime.getPort())
       .usePlaintext()
       .build()
-    service match {
-      case Service.Hello =>
-        val stub = GreeterGrpc.stub(c)
-        new GreeterClient(c, stub)
-      case Service.ActivateGrain =>
-        val stub = ActivateGrainServiceGrpc.stub(c)
-        new ActivateGrainClient(c, stub)
-      case Service.GrainSearch =>
-        val stub = GrainSearchGrpc.stub(c)
-        new SearchServiceClient(c, stub)
-      case Service.CreateGrain =>
-        new CreateGrainClient(c, stubType)
+
+    val tag = classTag[T]
+    tag match {
+      case x if x == classTag[ActivateGrainClient] =>
+        new ActivateGrainClient(c).asInstanceOf[T]
+      case x if x == classTag[SearchServiceClient] =>
+        new SearchServiceClient(c).asInstanceOf[T]
+      case x if x == classTag[CreateGrainClient] =>
+        new CreateGrainClient(c, stubType).asInstanceOf[T]
+      case _ => {
+        // Create an instance of the client
+        val clientClass = tag
+        val clientInstance = clientClass.runtimeClass
+          .getConstructor(classOf[ManagedChannel])
+          .newInstance(c)
+
+        return clientInstance.asInstanceOf[T]
+      }
     }
   }
-
-  def createGrainService(serverAddress: String,
-                         serverPort: Int,
-                         stubType: String = "async"): CreateGrainClient =
-    getService(Service.CreateGrain, serverAddress, serverPort, stubType)
-      .asInstanceOf[CreateGrainClient]
-
-  def searchGrainService(serverAddress: String,
-                         serverPort: Int,
-                         stubType: String = "async"): SearchServiceClient =
-    getService(Service.GrainSearch, serverAddress, serverPort, stubType)
-      .asInstanceOf[SearchServiceClient]
-
-  def activateGrainService(serverAddress: String,
-                           serverPort: Int,
-                           stubType: String = "async"): ActivateGrainClient =
-    getService(Service.ActivateGrain, serverAddress, serverPort, stubType)
-      .asInstanceOf[ActivateGrainClient]
+  implicit class MyInstanceOf[U: TypeTag](that: U) {
+    def myIsInstanceOf[T: TypeTag] =
+      typeOf[U] <:< typeOf[T]
+  }
 }

@@ -12,16 +12,11 @@ import org.orleans.silo.grainSearch.{SearchRequest, SearchResult}
 import scala.concurrent.Future
 
 /**
- * Class that you can use to execute searchGrain service on a remote server through gRPC call.
- */
-class SearchServiceClient(val channel: ManagedChannel,
-                          val stub: GrainSearchStub)
-    extends ServiceClient
+  * Class that you can use to execute searchGrain service on a remote server through gRPC call.
+  */
+class SearchServiceClient(val channel: ManagedChannel)
+    extends ServiceClient(channel, new GrainSearchStub(channel))
     with LazyLogging {
-
-  def shutdown(): Unit = {
-    channel.shutdown.awaitTermination(5, TimeUnit.MILLISECONDS)
-  }
 
   // Returns a future so it's more async
   def search(id: String): Future[SearchResult] = {

@@ -1,27 +1,38 @@
 package org.orleans.silo.Test
 
 import ch.qos.logback.classic.Level
+import main.scala.org.orleans.client.{OrleansRuntime, OrleansRuntimeBuilder}
+import org.orleans.developer.{TwitterAccountClient, TwitterAcount}
 import org.orleans.silo.Services.Client.ServiceFactory
-import org.orleans.silo.hello.GreeterGrpc
+import org.orleans.silo.twitterAcount.TwitterGrpc
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
 
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 object Testing {
   // Just a test for the new Service client
   def main(args: Array[String]): Unit = {
     setLevel(Level.INFO)
-    val client = ServiceFactory.createGrainService("localhost", 50050)
-    val f = client.createGrain[GreeterGrpc.Greeter, GreeterGrain]()
+
+    val runtime = OrleansRuntimeBuilder()
+      .host("localhost")
+      .port(50050)
+      .registerGrain[TwitterAcount, TwitterAccountClient, TwitterGrpc.Twitter]
+      .build()
+
+    val f = runtime.createGrain[TwitterAcount]()
+
     Await.result(f, 10 seconds)
     f onComplete {
       case Success(res) => println(s"Success response $res")
       case Failure(e)   => e.printStackTrace()
     }
 
-    //Thread.sleep(15000)
+    val id = "" //get ID somehow
+    val client = runtime.getGrain[TwitterAcount](id)
 
   }
 

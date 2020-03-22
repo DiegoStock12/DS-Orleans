@@ -19,12 +19,8 @@ import org.orleans.silo.Services.Grain.Grain
 
 class CreateGrainClient(val channel: ManagedChannel,
                         val stubType: String = "async")
-    extends ServiceClient
+    extends ServiceClient(channel, new Object())
     with LazyLogging {
-
-  def shutdown(): Unit = {
-    channel.shutdown.awaitTermination(5, TimeUnit.MILLISECONDS)
-  }
 
   /**
     * Creates a grain in a remote server of the type specified
@@ -33,9 +29,7 @@ class CreateGrainClient(val channel: ManagedChannel,
     * @tparam I Implementation of the service
     * @return
     */
-  def createGrain[T <: AbstractService with AnyRef: ClassTag,
-                  I <: Grain with AnyRef: ClassTag: TypeTag]()
-    : Future[CreationResponse] = {
+  def createGrain[T: ClassTag, I: ClassTag](): Future[CreationResponse] = {
 
     logger.info("Sending service implementation " + classTag[T].runtimeClass)
 
