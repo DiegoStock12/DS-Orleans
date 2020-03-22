@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package org.orleans.silo;
+
+service Twitter {
+    rpc tweet (TweetRequest) returns (TweetAck) {
+    }
+
+    rpc getAmountOfTweets (GetAmountOfTweets) returns (NumberOfTweets) {
+    }
+
+    rpc GetTweetList (GetAmountOfTweets) returns (TweetList) {
+    }
+}
+
+message TweetRequest {
+    string timestamp = 1;
+    string tweet = 2;
+}
+
+message TweetAck {
+    bool success = 1;
+}
+
+message GetAmountOfTweets {
+}
+
+message NumberOfTweets {
+    int32 tweets = 1;
+}
+
+message GetTweetList {}
+
+message TweetList {
+    repeated string tweets = 1;
+}

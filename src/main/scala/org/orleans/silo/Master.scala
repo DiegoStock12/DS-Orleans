@@ -4,23 +4,39 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateStateServiceImpl}
-import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.Services.Impl.{
+  CreateGrainImpl,
+  GrainSearchImpl,
+  UpdateStateServiceImpl
+}
+import org.orleans.silo.communication.ConnectionProtocol.{
+  Packet,
+  PacketType,
+  SlaveInfo
+}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
-import org.orleans.silo.utils.{GrainDescriptor, GrainState, ServerConfig, SlaveDetails}
+import org.orleans.silo.utils.{
+  GrainDescriptor,
+  GrainState,
+  ServerConfig,
+  SlaveDetails
+}
 
 import scala.concurrent.ExecutionContext
 
-
 /**
- * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
- * @param masterConfig Server configuration for the master
- * @param executionContext Execution context for the RPC services
- */
+  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
+  * @param masterConfig Server configuration for the master
+  * @param executionContext Execution context for the RPC services
+  */
 class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     extends LazyLogging
     with Runnable
@@ -31,8 +47,8 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   private[this] var master: Server = null
 
   // Hashmap to save the grain references
-  private val grainMap: ConcurrentHashMap[String, GrainDescriptor] =
-    new ConcurrentHashMap[String, GrainDescriptor]()
+  private val grainMap: ConcurrentHashMap[String, List[GrainDescriptor]] =
+    new ConcurrentHashMap[String, List[GrainDescriptor]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -50,7 +66,7 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     new PacketManager(this, masterConfig.udpPort)
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(masterConfig)
+  val runtime: Runtime = new Runtime(masterConfig)
 
   /**
     * Starts the master.
@@ -81,19 +97,18 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     * Starts the gRPC server.
     */
   def startgRPC() = {
-    grainMap.put(
-      "diegoalbo",
-      GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
+    grainMap.put("diegoalbo",
+                 List(
+                   GrainDescriptor(GrainState.Activating,
+                                   SlaveDetails("localhost", 50400))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
-      .addService(
-        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
-                                                executionContext))
-      .addService(
-        CreateGrainGrpc.bindService(new CreateGrainImpl("master", runtime),
-          executionContext))
+      .addService(UpdateGrainStateServiceGrpc
+        .bindService(new UpdateStateServiceImpl(grainMap), executionContext))
+      .addService(CreateGrainGrpc
+        .bindService(new CreateGrainImpl("master", runtime), executionContext))
       .build
       .start
 
