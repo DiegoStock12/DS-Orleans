@@ -8,8 +8,8 @@ import scala.reflect.runtime.universe._
 
 trait GrainDatabase {
 
-  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Unit
+  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]]
   def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T]
-  def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: AnyVal): Future[T]
+  def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T]
 
 }

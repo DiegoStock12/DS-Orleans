@@ -18,8 +18,6 @@ import scala.util.{Failure, Success}
 class TestGrain(_id: String) extends Grain(_id) {
   val someField: String = "testtest"
 
-  override def store(): Unit = {}
-
   override def toString = s"TestGrain(${_id}, $someField)"
 }
 
@@ -53,7 +51,7 @@ object DatabaseConnectionExample extends LazyLogging {
 
 }
 
-object MongoDatabase extends LazyLogging {
+object MongoDatabase extends GrainDatabase with LazyLogging {
   // Set the log level for mongodb to ERROR
   LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
 
@@ -72,7 +70,7 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Specific subtype of the grain
     * @return Returns a Future that contains the old stored grain if it was successfully stored or else an exception
     */
-  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]] = {
+  override def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]] = {
     val jsonString = GrainSerializer.serialize(grain)
     logger.debug(s"Inserting or updating grain: $grain")
     val result = grainCollection.findOneAndUpdate(equal("_id", grain._id), Document("$set" -> Document(jsonString)), FindOneAndUpdateOptions().upsert(true))
@@ -98,7 +96,7 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T] = {
+  override def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T] = {
     load("_id", id)
   }
 
@@ -109,7 +107,7 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T] = {
+  override def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T] = {
     val observable: SingleObservable[Document] = grainCollection.find(equal(fieldName, value)).first()
 
     observable.toFuture().transform {
