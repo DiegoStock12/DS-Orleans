@@ -10,8 +10,9 @@ object MetricsExtractor {
    * @return Number of pending requests.
    */
   def getPendingRequests(collectorRegistry: CollectorRegistry): Double = {
-    extractMetricValue("grpc_server_started_total", collectorRegistry)
-    - extractMetricValue("grpc_server_handled_total", collectorRegistry)
+    val started = extractMetricValue("grpc_server_started_total", collectorRegistry)
+    val handled = extractMetricValue("grpc_server_handled_total", collectorRegistry)
+    started - handled
   }
 
   /**

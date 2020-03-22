@@ -5,14 +5,15 @@ import java.util.UUID
 import java.util.concurrent.Executors.newSingleThreadExecutor
 
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{ServerBuilder, ServerServiceDefinition}
+import io.grpc.{ServerBuilder, ServerInterceptors, ServerServiceDefinition}
+import me.dinowernli.grpc.prometheus.{Configuration, MonitoringServerInterceptor}
 import org.orleans.silo.Services.Client.{CreateGrainClient, ServiceFactory}
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.createGrain.CreateGrainGrpc.CreateGrain
 import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.runtime.Runtime.GrainInfo
-import org.orleans.silo.utils.GrainState
+import org.orleans.silo.utils.{GrainState, RegistryFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -128,11 +129,14 @@ class CreateGrainImpl(private val serverType: String,
     // Get a port and an id for the new service and create it
 
     val port = runtime.getFreePort
+    logger.warn(port.toString)
 
     // Start the grain
     ServerBuilder
       .forPort(port)
-      .addService(ssd)
+      .addService(
+        ServerInterceptors.intercept(ssd,
+          MonitoringServerInterceptor.create(Configuration.allMetrics().withCollectorRegistry(RegistryFactory.getRegistry(id)))))
       .build
       .start
 
