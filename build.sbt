@@ -9,7 +9,7 @@ libraryDependencies ++= Seq(
   // ScalaPB dependencies
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
-  "org.json4s" % "json4s-jackson" % "3.7.0-M2",
+  "org.json4s" %% "json4s-jackson" % "3.7.0-M2",
   "org.mongodb.scala" %% "mongo-scala-driver" % "2.9.0"
 //  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
 //  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
