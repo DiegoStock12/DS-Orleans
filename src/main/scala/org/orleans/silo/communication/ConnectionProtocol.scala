@@ -14,6 +14,7 @@ object ConnectionProtocol {
     val SHUTDOWN = "shutdown"
     val SLAVE_CONNECT = "slave_connect"
     val SLAVE_DISCONNECT = "slave_disconnect"
+    val METRICS = "metrics"
   }
 
   // Data we keep track of in our master and slaves.
@@ -25,6 +26,9 @@ object ConnectionProtocol {
 
   // The interval for which heart beats are sent.
   val heartbeatInterval: Long = 1000
+
+  // The interval for which slave reports load of its grains.
+  val metricsInterval: Long = 1000
 
   // Time before we consider a silo dead.
   val deathTime: Long = 5 * heartbeatInterval

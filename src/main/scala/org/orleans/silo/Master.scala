@@ -1,13 +1,15 @@
 package org.orleans.silo
+
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
+import org.orleans.silo.Services.Impl.CreateGrainImpl
+import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateStateServiceImpl}
+import org.orleans.silo.Services.Impl.{GrainSearchImpl, UpdateStateServiceImpl}
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
-import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
@@ -18,11 +20,12 @@ import scala.concurrent.ExecutionContext
 
 /**
  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
- * @param masterConfig Server configuration for the master
+ *
+ * @param masterConfig     Server configuration for the master
  * @param executionContext Execution context for the RPC services
  */
 class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
-    extends LazyLogging
+  extends LazyLogging
     with Runnable
     with PacketListener {
 
@@ -53,10 +56,10 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   val runtime : Runtime = new Runtime(masterConfig, "master", false)
 
   /**
-    * Starts the master.
-    * - Creates a main control loop to keep track of slaves and send heartbeats.
-    * - Creates a packet-manager which handles incoming and outgoing packets.
-    */
+   * Starts the master.
+   * - Creates a main control loop to keep track of slaves and send heartbeats.
+   * - Creates a packet-manager which handles incoming and outgoing packets.
+   */
   def start() = {
     logger.info(f"Now starting master with id: ${protocol.shortUUID(uuid)}.")
     this.running = true
@@ -78,19 +81,20 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Starts the gRPC server.
-    */
+   * Starts the gRPC server.
+   */
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",
       List(GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
-      .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
-                                              executionContext))
+      .addService(
+        GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
+          executionContext))
       .addService(
         UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(grainMap),
-                                                executionContext))
+          executionContext))
       .addService(
         CreateGrainGrpc.bindService(new CreateGrainImpl("master", runtime),
           executionContext))
@@ -135,10 +139,11 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Send a packet to all slaves (exluding the slaves from the except list).
-    * @param packet the packet to send.
-    * @param except: the slaves not to send to.
-    */
+   * Send a packet to all slaves (exluding the slaves from the except list).
+   *
+   * @param packet the packet to send.
+   * @param except : the slaves not to send to.
+   */
   def notifyAllSlaves(packet: Packet, except: List[String] = List()): Unit = {
     for ((_, slaveInfo) <- slaves) {
       if (!except.contains(slaveInfo.uuid)) {
@@ -148,8 +153,8 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Verifies if all slaves are still alive, otherwise they get removed from the cluster.
-    */
+   * Verifies if all slaves are still alive, otherwise they get removed from the cluster.
+   */
   def verifySlavesAlive(): Unit = {
     for ((slaveUUID, slaveInfo) <- slaves) {
       val diffTime = System.currentTimeMillis() - slaveInfo.lastHeartbeat
@@ -162,43 +167,46 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Remove slave from cluster.
-    * @param slaveUUID the uuid to remove.
-    */
+   * Remove slave from cluster.
+   *
+   * @param slaveUUID the uuid to remove.
+   */
   def removeSlave(slaveUUID: String): Unit = {
     logger.debug(s"Remove slave ${protocol.shortUUID(slaveUUID)} from cluster.")
     slaves.remove(slaveUUID) // We remove it from the cluster.
   }
 
   /**
-    * Event-driven method which is triggered when a packet is received.
-    * Forwards the packet to the correct handler.
-    * @param packet the received packet.
-    * @param host the host receiving from.
-    * @param port the port receiving from.
-    */
+   * Event-driven method which is triggered when a packet is received.
+   * Forwards the packet to the correct handler.
+   *
+   * @param packet the received packet.
+   * @param host   the host receiving from.
+   * @param port   the port receiving from.
+   */
   override def onReceive(
-      packet: Packet,
-      host: String,
-      port: Int
-  ): Unit = packet.packetType match {
+                          packet: Packet,
+                          host: String,
+                          port: Int
+                        ): Unit = packet.packetType match {
     case PacketType.HANDSHAKE => processHandshake(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => processShutdown(packet, host, port)
-    case _                    => logger.warn(s"Did not expect this packet: $packet.")
+    case PacketType.SHUTDOWN => processShutdown(packet, host, port)
+    case PacketType.METRICS => processLoadData(packet, host, port)
+    case _ => logger.warn(s"Did not expect this packet: $packet.")
   }
 
   /**
-    * Processes a handshake.
-    * 1) If the slave is already in the cluster, we ignore this packet.
-    * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
-    * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
-    * 4) Send all other slaves there is a new slave in the cluster.
-    *
-    * @param packet The handshake packet.
-    * @param host The host receiving from.
-    * @param port The port receiving from.
-    */
+   * Processes a handshake.
+   * 1) If the slave is already in the cluster, we ignore this packet.
+   * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
+   * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
+   * 4) Send all other slaves there is a new slave in the cluster.
+   *
+   * @param packet The handshake packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processHandshake(packet: Packet, host: String, port: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
     if (slaves.contains(packet.uuid)) return
@@ -215,9 +223,9 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
 
     // And send all other slaves in the cluster there is a new slave.
     val new_slave = Packet(PacketType.SLAVE_CONNECT,
-                           slaveInfo.uuid,
-                           System.currentTimeMillis(),
-                           List(slaveInfo.host, slaveInfo.port.toString))
+      slaveInfo.uuid,
+      System.currentTimeMillis(),
+      List(slaveInfo.host, slaveInfo.port.toString))
     notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
 
     // Finally send this slave awareness of all other slaves.
@@ -237,16 +245,16 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Processes a heartbeat.
-    * 1). If the slave is unknown, we ignore this packet.
-    *   - It might be that it got rid of this slave because it thought the slave was dead.
-    *     After some time, the slave will also consider the master dead and tries to reconnect.
-    * 2) Slave information gets updated with the latest heartbeat, so that we know its alive.
-    *
-    * @param packet The heartbeat packet.
-    * @param host The host receiving from.
-    * @param port The port receiving from.
-    */
+   * Processes a heartbeat.
+   * 1). If the slave is unknown, we ignore this packet.
+   *   - It might be that it got rid of this slave because it thought the slave was dead.
+   * After some time, the slave will also consider the master dead and tries to reconnect.
+   * 2) Slave information gets updated with the latest heartbeat, so that we know its alive.
+   *
+   * @param packet The heartbeat packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
     if (!slaves.contains(packet.uuid)) {
       logger.debug(
@@ -263,21 +271,33 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   }
 
   /**
-    * Processes a shutdown of a slave.
-    * 1) Remove the slave from its own table.
-    * 2) Make other slaves aware this slave is removed.
-    * @param packet The shutdown packet.
-    * @param host The host receiving from.
-    * @param port The port receiving from.
-    */
+   * Processes load on the grains data.
+   * @param packet Packet with load metrics
+   * @param host The host receiving from.
+   * @param port The port receiving from.
+   */
+  def processLoadData(packet: Packet, host: String, port: Int): Unit = {
+    logger.info(s"Processing load data: ${packet.data}")
+    //TODO Update the information about the Load in the runtime.
+  }
+
+  /**
+   * Processes a shutdown of a slave.
+   * 1) Remove the slave from its own table.
+   * 2) Make other slaves aware this slave is removed.
+   *
+   * @param packet The shutdown packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Remove the slave.
     removeSlave(packet.uuid)
 
     // Notify all others the slave has been removed.
     val disconnect = Packet(PacketType.SLAVE_DISCONNECT,
-                            packet.uuid,
-                            System.currentTimeMillis())
+      packet.uuid,
+      System.currentTimeMillis())
     notifyAllSlaves(disconnect)
   }
 
@@ -285,9 +305,9 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   def getSlaves(): List[SlaveInfo] = slaves.toList.map(_._2)
 
   /**
-    * Stopping the master.
-    * Returns if it isn't running.
-    */
+   * Stopping the master.
+   * Returns if it isn't running.
+   */
   def stop(): Unit = {
     if (!running) return
     logger.info(f"Now stopping master with id: ${protocol.shortUUID(uuid)}.")
