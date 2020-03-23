@@ -7,6 +7,21 @@ import java.util.concurrent.{ConcurrentHashMap, Executors, ThreadPoolExecutor}
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 
+
+// TODO, work in progress to allow the grain to respond,
+// maybe we could send a GrainRef in the message
+// so he gets a message on his queue
+object ReplyTo {
+  def apply(oos: ObjectOutputStream): ReplyTo = new ReplyTo(oos)
+}
+
+class ReplyTo(private val stream: ObjectOutputStream) {
+  def reply(resp: Any): Unit = {
+    stream.writeObject(resp)
+  }
+}
+
+
 /**
  * Dispatcher that will hold the messages for a certain type of grain
  *
@@ -14,7 +29,7 @@ import org.orleans.silo.Services.Grain.Grain
  * @tparam T type of the grain that the dispatcher will serve
  */
 class Dispatcher[T <: Grain](grain: T, private val port: Int)
-    extends Runnable
+  extends Runnable
     with LazyLogging {
   type GrainType = T
 
@@ -30,19 +45,25 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
 
   override def run(): Unit = {
 
-    while(true){
+    while (true) {
       // Wait for requests
-      val s : Socket = socket.accept()
+      val s: Socket = socket.accept()
       logger.info(s"Accepted request from ${s.getInetAddress}${s.getPort}")
-      val ois : ObjectInputStream = new ObjectInputStream(s.getInputStream)
+      val ois: ObjectInputStream = new ObjectInputStream(s.getInputStream)
       val oos = new ObjectOutputStream(s.getOutputStream)
       ois.readObject() match {
-        case req  =>
-          val g: T = grainMap.get("1234").asInstanceOf[T]
+        case (id, req) =>
+          logger.info(s"got id $id and message $req")
+          val g: T = grainMap.get(id).asInstanceOf[T]
+          logger.info(s"Got grain $g")
           pool.execute(() => {
-            g.receive(req.asInstanceOf[g.Request])
-//            oos.writeObject(resp)
+            val res = g.receive(req)
+            res match {
+              case Some(value) => oos.writeObject(value)
+            }
           })
+        case other =>
+          logger.info(s"Unexpected message $other")
       }
 
     }
