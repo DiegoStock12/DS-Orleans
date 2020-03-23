@@ -113,6 +113,9 @@ class CreateGrainImpl(private val serverType: String,
       .getConstructor(classOf[String])
       .newInstance(id)
 
+    println(impl)
+    println(binder)
+
     // Build the service definition by binding the servide and an execution context
     val ssd: ServerServiceDefinition = binder
       .invoke(null,
@@ -121,6 +124,7 @@ class CreateGrainImpl(private val serverType: String,
           .fromExecutorService(newSingleThreadExecutor)
           .asInstanceOf[Object])
       .asInstanceOf[ServerServiceDefinition]
+
 
 
     // Get a port and an id for the new service and create it
@@ -139,7 +143,7 @@ class CreateGrainImpl(private val serverType: String,
       grainType = request.serviceName, grainPackage = request.packageName))
     runtime.grainMap.forEach((k, v) => logger.info(s"$k --> $v"))
 
-    Thread.sleep(500)
+    //Thread.sleep(500)
 
     // Return a response
     val response = CreationResponse(id, "localhost", port)

@@ -21,6 +21,11 @@ class TestGrain(_id: String) extends Grain(_id) {
   override def store(): Unit = {}
 
   override def toString = s"TestGrain(${_id}, $someField)"
+
+  override type Reply = this.type
+  override type Request = this.type
+
+  override def receive(M: TestGrain.this.type): TestGrain.this.type = ???
 }
 
 object DatabaseConnectionExample extends LazyLogging {

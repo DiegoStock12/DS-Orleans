@@ -4,6 +4,7 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
+import org.orleans.silo.Test.{Dispatcher, GreeterGrain}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
@@ -61,6 +62,8 @@ class Slave(slaveConfig: ServerConfig,
   // Runtime object that keeps track of grain activity
   val runtime : Runtime = new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
 
+  val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
+
 
   /**
     * Starts the slave.
@@ -82,7 +85,11 @@ class Slave(slaveConfig: ServerConfig,
     // Start runtime thread
     val runtimeThread = new Thread(runtime)
     runtimeThread.setName("runtime")
-    runtimeThread.start()
+    //runtimeThread.start()
+
+    val dispatcherThread = new Thread(dispatcher)
+    dispatcherThread.setName("Dispatcher")
+    dispatcherThread.start()
 
     startgRPC()
 
@@ -100,7 +107,6 @@ class Slave(slaveConfig: ServerConfig,
         .addService(
           CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
             executionContext))
-      // Add the Greeter service for testing
       .build
       .start
 

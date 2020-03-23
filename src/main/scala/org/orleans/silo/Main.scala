@@ -18,16 +18,16 @@ object Main {
     val slave = new Slave(slaveConfig =  ServerConfig("localhost", 1600, 50060),
                           masterConfig = ServerConfig("localhost", 1500, 50050),
                           ExecutionContext.global, report = true)
-    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
-                            masterConfig = ServerConfig("localhost", 1500, 50050),
-                            ExecutionContext.global, report = false)
+//    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
+//                            masterConfig = ServerConfig("localhost", 1500, 50050),
+//                            ExecutionContext.global, report = false)
     //slave.start()
     //slave2.start()
     //slave3.start()
 
     master.start()
     slave.start()
-    slave2.start()
+    //slave2.start()
 
     // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)

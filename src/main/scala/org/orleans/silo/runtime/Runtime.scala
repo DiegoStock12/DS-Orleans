@@ -10,15 +10,11 @@ import java.{lang, util}
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{ServerBuilder, ServerServiceDefinition}
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Test.GreeterGrain
-import org.orleans.silo.storage.GrainSerializer
 import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
-import scala.util.Random
 
 object Runtime{
   // Class that will serve as index for the grain map
@@ -27,10 +23,6 @@ object Runtime{
                        grain: Grain,
                        grainType: String,
                        grainPackage: String)
-  case class ReplicationInfo(grain: String,
-                             grainClass: Class[_ <: Grain],
-                             grainType:String,
-                             grainPackage: String)
 
   val GRPC_SUFFIX = "Grpc"
   val GRPC_SUBCLASS_SUFFIX = "Grpc$"
@@ -108,16 +100,15 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
         if (grainMap.isEmpty || sent)
           Thread.sleep(500)
         else {
+          // Try to send the grain info
           grainMap.forEach((k, info) => {
             logger.info(s"Getting grain with key $k and info $info")
-            val rInfo = ReplicationInfo(grain = GrainSerializer.serialize(info.grain),
-              info.grain.getClass,info.grainType, info.grainPackage)
-            logger.info(s"Now sending $rInfo")
+            logger.info(s"Now sending $info")
             // We know that the other slave is listening in port 2001
             val replicationSocket : Socket = new Socket("localhost", 2001)
             // Get the stream from which we'll send the grain
             val grainStream : ObjectOutputStream = new ObjectOutputStream(replicationSocket.getOutputStream)
-            grainStream.writeObject(rInfo)
+            grainStream.writeObject(info)
             logger.info(s"Grain sent to other slave")
             sent=true
           })
@@ -140,7 +131,7 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
     // Port to listen for replication requests
     // TODO right now it's random to run more than one in localhost
     private val REPL_PORT = if(report) 2000 else 2001
-    println(s"Trying to establish repl_port in port $REPL_PORT")
+    logger.info(s"Trying to establish repl_port in port $REPL_PORT")
     private val replicationSocket : ServerSocket = new ServerSocket(REPL_PORT)
 
     /**
@@ -160,8 +151,8 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
         // Get the input stream
         val input : ObjectInputStream = new ObjectInputStream(requestSocket.getInputStream)
         // We know that what we're gonna get is a grain
-        val info : ReplicationInfo = input.readObject().asInstanceOf[ReplicationInfo]
-        logger.info(s"Got grain ${info.grain} of type ${info.grainClass}")
+        val info : GrainInfo = input.readObject().asInstanceOf[GrainInfo]
+        logger.info(s"Got grain ${info.grain} of type ${info.grainType}")
 
 
         val definition = getServiceDefinition(info)
@@ -175,7 +166,7 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
       }
     }
 
-    private[this] def getServiceDefinition(info: ReplicationInfo) : ServerServiceDefinition = {
+    private[this] def getServiceDefinition(info: GrainInfo) : ServerServiceDefinition = {
       val serviceDefinitionClass: Class[_] = Class
         .forName(info.grainPackage + "." + info.grainType + GRPC_SUFFIX)
 
@@ -191,12 +182,6 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
           classOf[ExecutionContext])
       binder.setAccessible(true)
 
-//      val c = ClassTag(info.grainClass)
-//      type t = c.type
-//
-//
-//      val impl = GrainSerializer.deserialize[t](info.grain)
-//      logger.info("created new implementation "+impl)
 
       // Now create the ServerServiceDefinition with the grain object!
       val ssd: ServerServiceDefinition = binder
