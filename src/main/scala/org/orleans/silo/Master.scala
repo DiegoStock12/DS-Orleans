@@ -97,10 +97,6 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     * Starts the gRPC server.
     */
   def startgRPC() = {
-    grainMap.put("diegoalbo",
-                 List(
-                   GrainDescriptor(GrainState.Activating,
-                                   SlaveDetails("localhost", 50400))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),

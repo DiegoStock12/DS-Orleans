@@ -66,7 +66,8 @@ class CreateGrainImpl(private val serverType: String,
     */
   private def relayPetition(
       request: CreationRequest): Future[CreationResponse] = {
-    logger.info("Relaying to slave")
+    logger.info(
+      s"Need to create grain instance of type ${request.implementationName}. Relaying to slave.")
     // TODO we should look for the least loaded slave to send the info to
     val c: CreateGrainClient =
       ServiceFactory.getService[CreateGrainClient](
@@ -85,7 +86,7 @@ class CreateGrainImpl(private val serverType: String,
     */
   private def createNewGrain(
       request: CreationRequest): Future[CreationResponse] = {
-    logger.info("Creating the grain in the slave")
+    logger.info(s"Creating the grain of type ${request.implementationName}.")
     // Info necessary for reflection of the service
     val packageName = request.packageName
     val serviceName = request.serviceName

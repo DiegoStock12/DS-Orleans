@@ -11,6 +11,7 @@ import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.hello.GreeterGrpc
 
+import scala.collection.mutable
 import scala.reflect.ClassTag
 import scala.reflect._
 import scala.reflect.runtime.universe._
@@ -20,6 +21,8 @@ import scala.reflect.runtime.universe._
   */
 object ServiceFactory {
 
+  val connectionMap: mutable.Map[OrleansRuntime, ManagedChannel] = mutable.Map()
+
   /**
     * Gets the desired service
     *
@@ -27,10 +30,18 @@ object ServiceFactory {
     */
   def getService[T: ClassTag](runtime: OrleansRuntime,
                               stubType: String = "async"): T = {
-    val c = ManagedChannelBuilder
-      .forAddress(runtime.getHost(), runtime.getPort())
-      .usePlaintext()
-      .build()
+    var c: ManagedChannel = null
+
+    if (connectionMap.contains(runtime)) {
+      c = connectionMap.get(runtime).get
+    } else {
+      c = ManagedChannelBuilder
+        .forAddress(runtime.getHost(), runtime.getPort())
+        .usePlaintext()
+        .build()
+
+      connectionMap.put(runtime, c)
+    }
 
     val tag = classTag[T]
     tag match {
@@ -50,9 +61,5 @@ object ServiceFactory {
         return clientInstance.asInstanceOf[T]
       }
     }
-  }
-  implicit class MyInstanceOf[U: TypeTag](that: U) {
-    def myIsInstanceOf[T: TypeTag] =
-      typeOf[U] <:< typeOf[T]
   }
 }

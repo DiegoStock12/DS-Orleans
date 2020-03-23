@@ -17,6 +17,7 @@ class TwitterAcount(name: String) extends Grain(name) with Twitter {
   ): Future[
     TweetAck
   ] = {
+    println(request.tweet)
     tweets = Tweet(request.tweet, request.timestamp) :: tweets
     Future.successful(TweetAck(true))
   }
@@ -30,11 +31,13 @@ class TwitterAcount(name: String) extends Grain(name) with Twitter {
   }
 
   override def getTweetList(
-      request: GetAmountOfTweets
+      request: GetTweets
   ): Future[
     TweetList
   ] = {
-    Future.successful(TweetList(tweets.map(_.msg)))
+    println(tweets)
+    println(tweets.map(_.msg).toSeq)
+    Future.successful(TweetList(tweets.map(_.msg).toSeq))
   }
 
   override def store(): Unit = {}

@@ -28,8 +28,8 @@ class GrainSearchImpl(
 
   override def searchGrain(request: SearchRequest): Future[SearchResult] = {
     val id = request.grainID
-    logger.debug("Client is looking for grain " + id)
-    grainMap.forEach((k, v) => logger.debug(k + " -> " + v))
+    logger.info("Client is looking for grain " + id)
+    grainMap.forEach((k, v) => logger.info(k + " -> " + v))
 
     // First check if there grain was ever created
     if (grainMap.containsKey(id)) {

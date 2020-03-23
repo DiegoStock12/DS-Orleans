@@ -31,7 +31,7 @@ class CreateGrainClient(val channel: ManagedChannel,
     */
   def createGrain[T: ClassTag, I: ClassTag](): Future[CreationResponse] = {
 
-    logger.info("Sending service implementation " + classTag[T].runtimeClass)
+    logger.info("Creating grain for " + classTag[I].runtimeClass.getName)
 
     // Build a request with the desired info so we can reflect the class
     val request = CreationRequest(
@@ -40,7 +40,6 @@ class CreateGrainClient(val channel: ManagedChannel,
       implementationName = classTag[I].runtimeClass.getSimpleName,
       implementationPackage = classTag[I].runtimeClass.getPackage.getName
     )
-    println(request)
     sendRequest(request, stubType)
   }
 
@@ -68,12 +67,10 @@ class CreateGrainClient(val channel: ManagedChannel,
         val stub = CreateGrainGrpc.blockingStub(channel)
         val resp: CreationResponse = stub.createGrain(request)
         val f = Future.successful(resp)
-        println("Returning a future " + f)
         f
       case "async" =>
         val stub = CreateGrainGrpc.stub(channel)
         val f: Future[CreationResponse] = stub.createGrain(request)
-        println("Returning a future " + f)
         f
     }
   }

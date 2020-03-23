@@ -78,7 +78,7 @@ class OrleansRuntime(
   }
 
   def getGrain[G <: Grain: ClassTag](id: String): ServiceClient[G] = {
-    val createGrainService =
+    val searchService =
       ServiceFactory.getService[SearchServiceClient](this)
 
     val tags = registeredGrains.get(classTag[G])
@@ -87,11 +87,13 @@ class OrleansRuntime(
       //TODO Cannot find grain, throw error.
     }
 
-    // //Search the grain!
-    createGrainService.search(id)
+    // Search the grain!
+    //searchService.search(id)
 
     //finally link it to the client
-    ServiceFactory.getService(this)(tags.get._1).asInstanceOf[ServiceClient[G]]
+    ServiceFactory
+      .getService(OrleansRuntime("localhost", 5000))(tags.get._1)
+      .asInstanceOf[ServiceClient[G]]
   }
 
   def getHost() = master_host

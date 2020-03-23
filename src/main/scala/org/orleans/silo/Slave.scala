@@ -6,7 +6,11 @@ import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
@@ -14,13 +18,12 @@ import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
-
 /**
- * Slave silo, handles request from the master
- * @param slaveConfig Server config for the slave
- * @param masterConfig Config of the master server
- * @param executionContext Execution context for the RPC services
- */
+  * Slave silo, handles request from the master
+  * @param slaveConfig Server config for the slave
+  * @param masterConfig Config of the master server
+  * @param executionContext Execution context for the RPC services
+  */
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext)
@@ -58,7 +61,8 @@ class Slave(slaveConfig: ServerConfig,
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(slaveConfig)
+  val runtime: Runtime = new Runtime(slaveConfig)
+
   /**
     * Starts the slave.
     * - Creates a main control loop to send information to the master.
@@ -91,13 +95,11 @@ class Slave(slaveConfig: ServerConfig,
   def startgRPC() = {
     slave = ServerBuilder
       .forPort(slaveConfig.rpcPort)
+      .addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
+                                                       executionContext))
       .addService(
-        ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
-                                             executionContext))
-        .addService(
-          CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
-            executionContext))
-      // Add the Greeter service for testing
+        CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
+                                    executionContext))
       .build
       .start
 

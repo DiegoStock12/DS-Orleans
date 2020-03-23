@@ -9,7 +9,7 @@ service Twitter {
     rpc getAmountOfTweets (GetAmountOfTweets) returns (NumberOfTweets) {
     }
 
-    rpc GetTweetList (GetAmountOfTweets) returns (TweetList) {
+    rpc GetTweetList (GetTweets) returns (TweetList) {
     }
 }
 
@@ -29,7 +29,7 @@ message NumberOfTweets {
     int32 tweets = 1;
 }
 
-message GetTweetList {}
+message GetTweets{}
 
 message TweetList {
     repeated string tweets = 1;

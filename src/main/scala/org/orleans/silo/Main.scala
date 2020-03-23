@@ -14,8 +14,9 @@ object Main {
       * A simple test-scenario is run here.
       */
     val master =
-      new Master(ServerConfig("localhost", 2000, 50050), ExecutionContext.global)
-    val slave = new Slave(slaveConfig =  ServerConfig("localhost", 2001, 50060),
+      new Master(ServerConfig("localhost", 2000, 50050),
+                 ExecutionContext.global)
+    val slave = new Slave(slaveConfig = ServerConfig("localhost", 2001, 50060),
                           masterConfig = ServerConfig("localhost", 2000, 50050),
                           ExecutionContext.global)
     //slave.start()
@@ -24,14 +25,6 @@ object Main {
 
     master.start()
     slave.start()
-
-    // Let main thread sleep for 5 seconds
-    Thread.sleep(1000 * 5)
-
-    // Let see if other slaves are aware of each other.
-    println(slave.getSlaves())
-    println(master.getSlaves())
-
     // Stop one slave.
     //slave.stop()
     //Thread.sleep(1000 * 15)
