@@ -1,6 +1,7 @@
 package org.orleans.developer
 
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Services.Grain.Grain.Receive
 
 
 class AccountGrain(_id: String) extends Grain(_id) {
@@ -10,5 +11,5 @@ class AccountGrain(_id: String) extends Grain(_id) {
   override type Reply = this.type
   override type Request = this.type
 
-  override def receive(M: AccountGrain.this.type): AccountGrain.this.type = ???
+  override def receive: Receive = ???
 }

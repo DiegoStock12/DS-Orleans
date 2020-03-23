@@ -40,8 +40,8 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
         case req  =>
           val g: T = grainMap.get("1234").asInstanceOf[T]
           pool.execute(() => {
-            val resp = g.receive(req.asInstanceOf[g.Request])
-            oos.writeObject(resp)
+            g.receive(req.asInstanceOf[g.Request])
+//            oos.writeObject(resp)
           })
       }
 
