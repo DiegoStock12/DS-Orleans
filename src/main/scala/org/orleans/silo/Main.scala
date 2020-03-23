@@ -14,16 +14,20 @@ object Main {
       * A simple test-scenario is run here.
       */
     val master =
-      new Master(ServerConfig("localhost", 2000, 50050), ExecutionContext.global)
-    val slave = new Slave(slaveConfig =  ServerConfig("localhost", 2001, 50060),
-                          masterConfig = ServerConfig("localhost", 2000, 50050),
-                          ExecutionContext.global)
+      new Master(ServerConfig("localhost", 1500, 50050), ExecutionContext.global)
+    val slave = new Slave(slaveConfig =  ServerConfig("localhost", 1600, 50060),
+                          masterConfig = ServerConfig("localhost", 1500, 50050),
+                          ExecutionContext.global, report = true)
+    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
+                            masterConfig = ServerConfig("localhost", 1500, 50050),
+                            ExecutionContext.global, report = false)
     //slave.start()
     //slave2.start()
     //slave3.start()
 
     master.start()
     slave.start()
+    slave2.start()
 
     // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)

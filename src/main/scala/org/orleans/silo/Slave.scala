@@ -23,7 +23,8 @@ import scala.concurrent.ExecutionContext
  */
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
-            executionContext: ExecutionContext)
+            executionContext: ExecutionContext,
+            report : Boolean)
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -58,7 +59,9 @@ class Slave(slaveConfig: ServerConfig,
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(slaveConfig)
+  val runtime : Runtime = new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
+
+
   /**
     * Starts the slave.
     * - Creates a main control loop to send information to the master.
@@ -88,7 +91,7 @@ class Slave(slaveConfig: ServerConfig,
   /**
     * Starts the gRPC server.
     */
-  def startgRPC() = {
+  private def startgRPC() = {
     slave = ServerBuilder
       .forPort(slaveConfig.rpcPort)
       .addService(

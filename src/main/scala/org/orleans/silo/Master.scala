@@ -31,8 +31,8 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   private[this] var master: Server = null
 
   // Hashmap to save the grain references
-  private val grainMap: ConcurrentHashMap[String, GrainDescriptor] =
-    new ConcurrentHashMap[String, GrainDescriptor]()
+  private val grainMap: ConcurrentHashMap[String, List[GrainDescriptor]] =
+    new ConcurrentHashMap[String, List[GrainDescriptor]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -50,7 +50,7 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     new PacketManager(this, masterConfig.udpPort)
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(masterConfig)
+  val runtime : Runtime = new Runtime(masterConfig, "master", false)
 
   /**
     * Starts the master.
@@ -70,9 +70,9 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     masterThread.start()
 
     // Start runtime thread
-    val runtimeThread = new Thread(runtime)
-    runtimeThread.setName("runtime")
-    runtimeThread.start()
+//    val runtimeThread = new Thread(runtime)
+//    runtimeThread.setName("runtime")
+//    runtimeThread.start()
 
     startgRPC()
   }
@@ -83,13 +83,13 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
   def startgRPC() = {
     grainMap.put(
       "diegoalbo",
-      GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400)))
+      List(GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
       .addService(
-        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl,
+        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(grainMap),
                                                 executionContext))
       .addService(
         CreateGrainGrpc.bindService(new CreateGrainImpl("master", runtime),

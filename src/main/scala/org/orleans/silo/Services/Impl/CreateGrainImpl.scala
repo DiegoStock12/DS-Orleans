@@ -135,7 +135,8 @@ class CreateGrainImpl(private val serverType: String,
       .start
 
     // Save the grain information in the runtime
-    runtime.grainMap.put(port, GrainInfo(id, GrainState.InMemory, impl.asInstanceOf[Grain]))
+    runtime.grainMap.put(port, GrainInfo(id, GrainState.InMemory, impl.asInstanceOf[Grain],
+      grainType = request.serviceName, grainPackage = request.packageName))
     runtime.grainMap.forEach((k, v) => logger.info(s"$k --> $v"))
 
     Thread.sleep(500)
