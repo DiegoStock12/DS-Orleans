@@ -4,11 +4,16 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
+import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.RegistryFactory
@@ -17,26 +22,102 @@ import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.{ClassTag, classTag}
 
+object Slave {
+  def apply(): SlaveBuilder = new SlaveBuilder()
+
+}
+
+class SlaveBuilder extends LazyLogging {
+
+  private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
+  private var masterConfig: ServerConfig = ServerConfig("", 0, 0)
+
+  private var executionContext: ExecutionContext = null
+  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+    mutable.MutableList()
+
+  def setHost(hostt: String): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(host = hostt)
+    this
+  }
+
+  def setUDPPort(udp: Int): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(udpPort = udp)
+    this
+  }
+
+  def setTCPPort(tcp: Int): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(tcpPort = tcp)
+    this
+  }
+
+  def setMasterHost(hostt: String): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(host = hostt)
+    this
+  }
+
+  def setMasterUDPPort(udp: Int): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(udpPort = udp)
+    this
+  }
+
+  def setMasterTCPPort(tcp: Int): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(tcpPort = tcp)
+    this
+  }
+
+  def setServerConfig(serverConfig: ServerConfig): SlaveBuilder = {
+    this.serverConfig = serverConfig
+    this
+  }
+
+  def setExecutionContext(executionContext: ExecutionContext): SlaveBuilder = {
+    this.executionContext = executionContext
+    this
+  }
+
+  def setGrainPorts(ports: Set[Int]): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(grainPorts = ports)
+    this
+  }
+
+  def registerGrain[T <: Grain: ClassTag] = {
+    val tag = classTag[T]
+
+    if (this.grains.contains(tag)) {
+      logger.warn(s"${tag.runtimeClass.getName} already registered in slave.")
+    }
+
+    this.grains += classTag[T]
+    this
+  }
+
+  def build(): Slave = {
+    if (executionContext == null) {
+      logger.warn(
+        "Master has no execution context set. Will use the global one.")
+      this.executionContext = ExecutionContext.global
+    }
+
+    new Slave(serverConfig, masterConfig, executionContext, grains.toList)
+  }
+}
 
 /**
- * Slave silo, handles request from the master
- *
- * @param slaveConfig      Server config for the slave
- * @param masterConfig     Config of the master server
- * @param executionContext Execution context for the RPC services
- */
+  * Slave silo, handles request from the master
+  * @param slaveConfig Server config for the slave
+  * @param masterConfig Config of the master server
+  * @param executionContext Execution context for the RPC services
+  */
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext,
-            report: Boolean)
-  extends LazyLogging
+            registeredGrains: List[ClassTag[_ <: Grain]] = List())
+    extends LazyLogging
     with Runnable
     with PacketListener {
-
-  // For now just define it as a gRPC endpoint
-  self =>
-  private[this] var slave: Server = null
 
   // Hashmap to save the grain references
   private val grainMap: mutable.HashMap[String, GrainDescriptor] =
@@ -53,6 +134,7 @@ class Slave(slaveConfig: ServerConfig,
   // Master information.
   @volatile
   var connectedToMaster: Boolean = false
+
   @volatile
   var masterInfo: MasterInfo = MasterInfo("", 0)
 
@@ -63,18 +145,14 @@ class Slave(slaveConfig: ServerConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
-  // Runtime object that keeps track of grain activity
-  val runtime: Runtime = new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
-
-  val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
-
-//  val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
+  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  private var portsUsed: Set[Int] = Set()
 
   /**
-   * Starts the slave.
-   * - Creates a main control loop to send information to the master.
-   * - Creates a packet-manager which handles incoming and outgoing packets.
-   */
+    * Starts the slave.
+    * - Creates a main control loop to send information to the master.
+    * - Creates a packet-manager which handles incoming and outgoing packets.
+    */
   def start() = {
     logger.info(f"Now starting slave with id: ${protocol.shortUUID(uuid)}.")
     this.running = true
@@ -87,52 +165,34 @@ class Slave(slaveConfig: ServerConfig,
     slaveThread.setName(f"slave-$shortId")
     slaveThread.start()
 
-    // Start runtime thread
-    val runtimeThread = new Thread(runtime)
-    runtimeThread.setName("runtime")
-    //runtimeThread.start()
-
-    val dispatcherThread = new Thread(dispatcher)
-    dispatcherThread.setName("Dispatcher")
-    dispatcherThread.start()
-
-//    val dispatcherThread = new Thread(dispatcher)
-//    dispatcherThread.setName("Dispatcher")
-//    dispatcherThread.start()
-
-
-    startgRPC()
-
+    // Starting the dispatchers
+    logger.debug("Starting dispatchers.")
+    startMainDispatcher()
+    startGrainDispatchers()
   }
 
-  /**
-   * Starts the gRPC server.
-   */
-  private def startgRPC() = {
+  def startMainDispatcher() = {
+    //TODO dispatcher here for 'general grain'
+    //use this serverConfig.tcpPort
+  }
 
-    slave = ServerBuilder
-      .forPort(slaveConfig.rpcPort)
-      .addService(
-        ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(), executionContext))
-      .addService(
-        CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
-          executionContext))
-      .build
-      .start
-
-    //    ServerBuilder
-    //      .forPort(50400)
-    //      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext))
-    //      .build
-    //      .start
-
-    logger.info(
-      "Slave server started, listening on port " + slaveConfig.rpcPort)
-    sys.addShutdownHook {
-      logger.error("*** shutting down gRPC server since JVM is shutting down")
-      // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly
-      this.stop()
+  def startGrainDispatchers() = {
+    registeredGrains.foreach { x =>
+      dispatchers = new Dispatcher(getFreePort)(x) :: dispatchers
     }
+  }
+
+  def getFreePort: Int = {
+    val portsLeft = slaveConfig.grainPorts.diff(portsUsed)
+
+    if (portsLeft.size == 0) {
+      this.stop()
+      throw new RuntimeException("No free ports left to start grain socket.")
+    }
+
+    val port = portsLeft.toList(0)
+    portsUsed = Set(port).union(portsUsed)
+    return port
   }
 
   /** Control loop. */
@@ -170,7 +230,10 @@ class Slave(slaveConfig: ServerConfig,
         val data = RegistryFactory.getRegistryLoads()
         if (data.nonEmpty) {
           // Send load metrics to the master.
-          val metrics = Packet(PacketType.METRICS, this.uuid, newTime, prepareMetricsData(data))
+          val metrics = Packet(PacketType.METRICS,
+                               this.uuid,
+                               newTime,
+                               prepareMetricsData(data))
           packetManager.send(metrics, masterConfig.host, masterConfig.udpPort)
         }
         // Update time
@@ -185,11 +248,11 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Transforms map with load per service to String representation.
-   *
-   * @param data
-   * @return List of String representation of the load data.
-   */
+    * Transforms map with load per service to String representation.
+    *
+    * @param data
+    * @return List of String representation of the load data.
+    */
   def prepareMetricsData(data: Map[String, Int]): List[String] = {
     var prepared: List[String] = List()
     for ((id, load) <- data) {
@@ -200,12 +263,12 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Trying to connect to master.
-   * 1) Sends handshake packet.
-   * 2) Expects welcome packet which toggles `connectedToMaster` flag.
-   *   - If not received within `connectionDelay`ms, then retry `conectionAttempts` times.
-   *   - If no welcome packet is received at all. Slave silo is shut down.
-   */
+    * Trying to connect to master.
+    * 1) Sends handshake packet.
+    * 2) Expects welcome packet which toggles `connectedToMaster` flag.
+    *   - If not received within `connectionDelay`ms, then retry `conectionAttempts` times.
+    *   - If no welcome packet is received at all. Slave silo is shut down.
+    */
   def connectToMaster(): Boolean = {
     logger.info("Connecting to master.")
     for (i <- 1 to protocol.connectionAttempts) {
@@ -233,8 +296,8 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Verifies if the master is still alive. If not, the slave gets disconnected (and then tries to reconnect).
-   */
+    * Verifies if the master is still alive. If not, the slave gets disconnected (and then tries to reconnect).
+    */
   def verifyMasterAlive(): Unit = {
     val diffTime = System.currentTimeMillis() - masterInfo.lastHeartbeat
     if (diffTime >= protocol.deathTime) {
@@ -246,36 +309,36 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Event-driven method which is triggered when a packet is received.
-   * Forwards the packet to the correct handler.
-   *
-   * @param packet the received packet.
-   * @param host   the host receiving from.
-   * @param port   the port receiving from.
-   */
+    * Event-driven method which is triggered when a packet is received.
+    * Forwards the packet to the correct handler.
+    *
+    * @param packet the received packet.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
+    */
   override def onReceive(
-                          packet: Packet,
-                          host: String,
-                          port: Int
-                        ): Unit = packet.packetType match {
-    case PacketType.WELCOME => processWelcome(packet, host, port)
-    case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
+      packet: Packet,
+      host: String,
+      port: Int
+  ): Unit = packet.packetType match {
+    case PacketType.WELCOME       => processWelcome(packet, host, port)
+    case PacketType.HEARTBEAT     => processHeartbeat(packet, host, port)
     case PacketType.SLAVE_CONNECT => processSlaveConnect(packet, host, port)
     case PacketType.SLAVE_DISCONNECT =>
       processSlaveDisconnect(packet, host, port)
     case PacketType.SHUTDOWN => processShutdown(packet, host, port)
-    case _ => logger.error(s"Did not expect this packet: $packet.")
+    case _                   => logger.error(s"Did not expect this packet: $packet.")
 
   }
 
   /**
-   * Processes a welcome.
-   * 1). If a welcome packet is received, the `masterInfo` is updated with the correct UUID.
-   *
-   * @param packet The welcome packet.
-   * @param host   The host receiving from.
-   * @param port   The port receiving from.
-   */
+    * Processes a welcome.
+    * 1). If a welcome packet is received, the `masterInfo` is updated with the correct UUID.
+    *
+    * @param packet The welcome packet.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
+    */
   def processWelcome(packet: Packet, host: String, port: Int): Unit = {
     masterInfo = MasterInfo(packet.uuid, System.currentTimeMillis())
     connectedToMaster = true
@@ -284,15 +347,15 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Processes a heartbeat.
-   * 1). If the packet is from an unknown UUID, we ignore this packet.
-   *   - TODO I'm not sure if this is already a good thing, what if the master crashed and got a new UUID?
-   * 2) Master information gets updated with the latest heartbeat, so that we know its alive.
-   *
-   * @param packet The heartbeat packet.
-   * @param host   The host receiving from.
-   * @param port   The port receiving from.
-   */
+    * Processes a heartbeat.
+    * 1). If the packet is from an unknown UUID, we ignore this packet.
+    *   - TODO I'm not sure if this is already a good thing, what if the master crashed and got a new UUID?
+    * 2) Master information gets updated with the latest heartbeat, so that we know its alive.
+    *
+    * @param packet The heartbeat packet.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
+    */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
     if (packet.uuid != masterInfo.uuid) {
       logger.debug("Received heartbeat packet from an unknown source.")
@@ -305,32 +368,32 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Processes connection of a new slave.
-   * 1). Add slave to local table (if not already there).
-   *
-   * @param packet the connect packet.
-   * @param host   the host receiving from.
-   * @param port   the port receiving from.
-   */
+    * Processes connection of a new slave.
+    * 1). Add slave to local table (if not already there).
+    *
+    * @param packet the connect packet.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
+    */
   def processSlaveConnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is already in the cluster, we will not add it again.
     if (slaves.contains(packet.uuid)) return
 
     // Store slaveInfo from data in packet.
     slaves.put(packet.uuid,
-      SlaveInfo(packet.uuid, packet.data(0), packet.data(1).toInt))
+               SlaveInfo(packet.uuid, packet.data(0), packet.data(1).toInt))
     logger.debug(
       s"Added new slave ${protocol.shortUUID(packet.uuid)} to local hashtable.")
   }
 
   /**
-   * Processes disconnect of a new slave.
-   * 1). Remove slave from local table (if there).
-   *
-   * @param packet the disconnect packet.
-   * @param host   the host receiving from.
-   * @param port   the port receiving from.
-   */
+    * Processes disconnect of a new slave.
+    * 1). Remove slave from local table (if there).
+    *
+    * @param packet the disconnect packet.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
+    */
   def processSlaveDisconnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is not in the cluster, we will ignore this packet.
     if (!slaves.contains(packet.uuid)) return
@@ -342,12 +405,12 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   /**
-   * Processes a shutdown packet by stopping the slave.
-   *
-   * @param packet the shutdown packet.
-   * @param host   the host receiving from.
-   * @param port   the port receiving from.
-   */
+    * Processes a shutdown packet by stopping the slave.
+    *
+    * @param packet the shutdown packet.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
+    */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Check if it is actually the master.
     if (packet.uuid != masterInfo.uuid) {
@@ -364,9 +427,9 @@ class Slave(slaveConfig: ServerConfig,
   def getSlaves(): List[SlaveInfo] = slaves.toList.map(_._2)
 
   /**
-   * Stopping the slave.
-   * Returns if it isn't running.
-   */
+    * Stopping the slave.
+    * Returns if it isn't running.
+    */
   def stop(): Unit = {
     if (!running) return
     logger.info(f"Now stopping slave with id: ${protocol.shortUUID(uuid)}.")
@@ -376,10 +439,10 @@ class Slave(slaveConfig: ServerConfig,
       Packet(PacketType.SHUTDOWN, this.uuid, System.currentTimeMillis())
     packetManager.send(shutdown, masterConfig.host, masterConfig.udpPort)
 
-    // cancel itself
-    if (slave != null) {
-      slave.shutdown()
-    }
+    // Stop dispatchers
+    this.dispatchers.foreach(_.stop())
+
+    // Cancel packet manager and stop slave.
     this.packetManager.cancel()
     this.running = false
     this.slaves.clear()

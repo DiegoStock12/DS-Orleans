@@ -1,6 +1,7 @@
 package org.orleans.silo
 
 import ch.qos.logback.classic.Level
+import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.utils.ServerConfig
 
 import scala.concurrent.ExecutionContext
@@ -13,21 +14,29 @@ object Main {
     /**
       * A simple test-scenario is run here.
       */
-    val master =
-      new Master(ServerConfig("localhost", 1500, 50050), ExecutionContext.global)
-    val slave = new Slave(slaveConfig =  ServerConfig("localhost", 1600, 50060),
-                          masterConfig = ServerConfig("localhost", 1500, 50050),
-                          ExecutionContext.global, report = true)
-//    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
-//                            masterConfig = ServerConfig("localhost", 1500, 50050),
-//                            ExecutionContext.global, report = false)
-    //slave.start()
-    //slave2.start()
-    //slave3.start()
+    val master = Master()
+      .registerGrain[GreeterGrain]
+      .setHost("localhost")
+      .setTCPPort(1400)
+      .setUDPPort(1500)
+      .setExecutionContext(ExecutionContext.global)
+      .setGrainPorts((1501 to 1510).toSet)
+      .build()
+
+    val slave = Slave()
+      .registerGrain[GreeterGrain]
+      .setHost("localhost")
+      .setTCPPort(1600)
+      .setUDPPort(1700)
+      .setMasterHost("localhost")
+      .setMasterTCPPort(1400)
+      .setMasterUDPPort(1500)
+      .setExecutionContext(ExecutionContext.global)
+      .setGrainPorts((1601 to 1610).toSet)
+      .build()
 
     master.start()
     slave.start()
-    //slave2.start()
 
     // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)
@@ -36,15 +45,8 @@ object Main {
     println(slave.getSlaves())
     println(master.getSlaves())
 
-    // Stop one slave.
-    //slave.stop()
-    //Thread.sleep(1000 * 15)
-
-    // See if the awareness is updated.
-    //println(master.getSlaves())
-
-    // Stop all by stopping the master.
-    //master.stop()
+    master.stop()
+    slave.stop()
   }
 
   /** Very hacky way to set the log level */
