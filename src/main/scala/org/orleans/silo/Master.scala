@@ -4,6 +4,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
+import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Impl.{
   CreateGrainImpl,
   GrainSearchImpl,
@@ -115,6 +116,8 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
       this.stop()
     }
   }
+
+  def registerGrain[G <: Grain]() = {}
 
   /** Control loop. */
   def run(): Unit = {

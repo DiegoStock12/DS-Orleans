@@ -12,7 +12,9 @@ service Twitter {
     rpc GetTweetList (GetTweets) returns (TweetList) {
     }
 }
-
+message Grain {
+    string id = 1;
+}
 message TweetRequest {
     string timestamp = 1;
     string tweet = 2;

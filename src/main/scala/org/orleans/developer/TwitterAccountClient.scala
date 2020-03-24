@@ -12,7 +12,7 @@ class TwitterAccountClient(channel: ManagedChannel)
     with LazyLogging {
 
   def tweet(tweet: Tweet): Future[TweetAck] =
-    stub.tweet(TweetRequest(tweet.msg, tweet.timestamp))
+    stub.tweet(TweetRequest(tweet.timestamp, tweet.msg))
 
   def getAmountOfTweets(): Future[NumberOfTweets] =
     stub.getAmountOfTweets(GetAmountOfTweets())

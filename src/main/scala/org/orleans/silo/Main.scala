@@ -1,14 +1,20 @@
 package org.orleans.silo
 
 import ch.qos.logback.classic.Level
+import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.createGrain.CreateGrainGrpc.CreateGrain
+import org.orleans.silo.twitterAcount.TwitterGrpc
 import org.orleans.silo.utils.ServerConfig
-
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 
 object Main {
 
   def main(args: Array[String]): Unit = {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
+
+    TwitterGrpc.javaDescriptor.getMethods.asScala.foreach(x =>
+      println(x.getFullName))
 
     /**
       * A simple test-scenario is run here.

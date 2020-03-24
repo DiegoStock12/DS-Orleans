@@ -5,7 +5,7 @@ import java.util.UUID
 import java.util.concurrent.Executors.newSingleThreadExecutor
 
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{ServerBuilder, ServerServiceDefinition}
+import io.grpc._
 import main.scala.org.orleans.client.OrleansRuntime
 import org.orleans.silo.Services.Client.{CreateGrainClient, ServiceFactory}
 import org.orleans.silo.Services.Grain.Grain
@@ -133,6 +133,18 @@ class CreateGrainImpl(private val serverType: String,
     ServerBuilder
       .forPort(port)
       .addService(ssd)
+      .intercept(new ServerInterceptor {
+        override def interceptCall[ReqT, RespT](
+            call: ServerCall[ReqT, RespT],
+            headers: Metadata,
+            next: ServerCallHandler[ReqT, RespT]
+        ): ServerCall.Listener[ReqT] = {
+          logger.info("So we received a call! ")
+          logger.info(headers.toString)
+          logger.info(call.getMethodDescriptor().getFullMethodName)
+          next.startCall(call, headers)
+        }
+      })
       .build
       .start
 
