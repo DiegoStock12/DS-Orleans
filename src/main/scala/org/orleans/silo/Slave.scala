@@ -4,11 +4,12 @@ import java.util.UUID
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
-import org.orleans.silo.Test.{Dispatcher, GreeterGrain}
+import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 

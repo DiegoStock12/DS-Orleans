@@ -3,15 +3,17 @@ package org.orleans.silo.Services.Grain
 import java.io.{ObjectInputStream, ObjectOutputStream}
 import java.net.Socket
 
+import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.GrainRef.SenderInfo
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object GrainRef {
+object GrainRef extends LazyLogging{
   def apply(id: String, address: String, port: Int): GrainRef = {
     // Create a socket
     s = new Socket(address, port)
+    // Important to create the output stream before the input stream!
     val oos: ObjectOutputStream = new ObjectOutputStream(s.getOutputStream)
     val ois: ObjectInputStream = new ObjectInputStream(s.getInputStream)
     new GrainRef(oos, ois, id)

@@ -11,12 +11,14 @@ import scala.util.Success
 object Testing {
   // Just a test for the new Service client
   def main(args: Array[String]): Unit = {
+    println("Trying to get the socket")
     // Socket for the dispatcher
     // Get the grain reference
     val g = GrainRef("1234", "localhost", 2500)
 
     // Send a message to the grain
     // Synchronous request
+    println("Sending hello message to grain 1234")
     g ! "hello"
 
     // TODO right now either one or the other calls work, because the connection in the dispatcher closes

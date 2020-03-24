@@ -4,7 +4,7 @@ import com.google.protobuf.GeneratedMessage
 import scalapb.GeneratedMessage
 
 object Grain{
-  type Receive = PartialFunction[Any, Option[Any]]
+  type Receive = PartialFunction[Any, Unit]
 }
 
 abstract class Grain(val _id: String) extends Serializable  {
