@@ -64,6 +64,7 @@ class MasterBuilder extends LazyLogging {
     }
 
     this.grains += classTag[T]
+    this
   }
 
   def build(): Master = {
@@ -115,9 +116,6 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
-  // Runtime object that keeps track of grain activity
-  val runtime: Runtime = new Runtime(masterConfig, "master", false)
-
   /**
     * Starts the master.
     * - Creates a main control loop to keep track of slaves and send heartbeats.
@@ -125,6 +123,7 @@ class Master(masterConfig: ServerConfig,
     */
   def start() = {
     logger.info(f"Now starting master with id: ${protocol.shortUUID(uuid)}.")
+    logger.info(f"Master got ${registeredGrains.size} grain(s) registered.")
     this.running = true
 
     // Starting a packet manager which listens for incoming packets.
@@ -135,39 +134,6 @@ class Master(masterConfig: ServerConfig,
     masterThread.setName(f"master-$shortId")
     masterThread.start()
 
-    // Start runtime thread
-//    val runtimeThread = new Thread(runtime)
-//    runtimeThread.setName("runtime")
-//    runtimeThread.start()
-
-    startgRPC()
-  }
-
-  /**
-    * Starts the gRPC server.
-    */
-  def startgRPC() = {
-    grainMap.put("diegoalbo",
-                 List(
-                   GrainDescriptor(GrainState.Activating,
-                                   SlaveDetails("localhost", 50400))))
-    master = ServerBuilder
-      .forPort(masterConfig.rpcPort)
-      .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
-                                              executionContext))
-      .addService(UpdateGrainStateServiceGrpc
-        .bindService(new UpdateStateServiceImpl(grainMap), executionContext))
-      .addService(CreateGrainGrpc
-        .bindService(new CreateGrainImpl("master", runtime), executionContext))
-      .build
-      .start
-
-    logger.info(
-      "Master server started, listening on port " + masterConfig.udpPort)
-    sys.addShutdownHook {
-      logger.error("*** shutting down gRPC server since JVM is shutting down")
-      this.stop()
-    }
   }
 
   /** Control loop. */

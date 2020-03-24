@@ -7,7 +7,11 @@ import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.runtime.Runtime
@@ -16,17 +20,16 @@ import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
-
 /**
- * Slave silo, handles request from the master
- * @param slaveConfig Server config for the slave
- * @param masterConfig Config of the master server
- * @param executionContext Execution context for the RPC services
- */
+  * Slave silo, handles request from the master
+  * @param slaveConfig Server config for the slave
+  * @param masterConfig Config of the master server
+  * @param executionContext Execution context for the RPC services
+  */
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext,
-            report : Boolean)
+            report: Boolean)
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -50,6 +53,7 @@ class Slave(slaveConfig: ServerConfig,
   // Master information.
   @volatile
   var connectedToMaster: Boolean = false
+
   @volatile
   var masterInfo: MasterInfo = MasterInfo("", 0)
 
@@ -61,10 +65,10 @@ class Slave(slaveConfig: ServerConfig,
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
+  val runtime: Runtime =
+    new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
 
   val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
-
 
   /**
     * Starts the slave.
@@ -102,12 +106,11 @@ class Slave(slaveConfig: ServerConfig,
   private def startgRPC() = {
     slave = ServerBuilder
       .forPort(slaveConfig.rpcPort)
+      .addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
+                                                       executionContext))
       .addService(
-        ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
-                                             executionContext))
-        .addService(
-          CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
-            executionContext))
+        CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
+                                    executionContext))
       .build
       .start
 

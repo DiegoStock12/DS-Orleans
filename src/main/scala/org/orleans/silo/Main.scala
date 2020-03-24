@@ -1,6 +1,7 @@
 package org.orleans.silo
 
 import ch.qos.logback.classic.Level
+import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.utils.ServerConfig
 
 import scala.concurrent.ExecutionContext
@@ -14,6 +15,7 @@ object Main {
       * A simple test-scenario is run here.
       */
     val master = MasterBuilder()
+      .registerGrain[GreeterGrain]
       .setServerConfig(ServerConfig("localhost", 1500, 50050))
       .setExecutionContext(ExecutionContext.global)
       .build()
