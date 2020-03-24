@@ -1,7 +1,7 @@
 package org.orleans.silo.dispatcher
 
 import java.io.{ObjectInputStream, ObjectOutputStream}
-import java.net.{ServerSocket, Socket}
+import java.net.{ServerSocket, Socket, SocketException}
 import java.util.concurrent.{
   ConcurrentHashMap,
   ConcurrentMap,
@@ -9,6 +9,7 @@ import java.util.concurrent.{
   ThreadPoolExecutor
 }
 
+import scala.reflect._
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 
@@ -39,7 +40,15 @@ private class MessageReceiver(
   override def run(): Unit = {
     while (running) {
       // Wait for request
-      val clientSocket: Socket = requestSocket.accept
+      var clientSocket: Socket = null
+
+      try {
+        clientSocket = requestSocket.accept
+      } catch {
+        case socket: SocketException =>
+          return //socket is probably closed, we can exit this method.
+      }
+
       logger.info(
         s"Accepted new client! ${clientSocket.getInetAddress}: ${clientSocket.getPort}")
       // Important to create the oos if not the ois on the other side of the connection blocks until it is
@@ -74,6 +83,7 @@ private class MessageReceiver(
 
   def stop(): Unit = {
     logger.debug("Stopping message-receiver.")
+    requestSocket.close()
     this.running = false
   }
 }
@@ -84,7 +94,7 @@ private class MessageReceiver(
   * @param grain grain to start the dispatcher with
   * @tparam T type of the grain that the dispatcher will serve
   */
-class Dispatcher[T <: Grain](grain: T, private val port: Int)
+class Dispatcher[T <: Grain: ClassTag](private val port: Int)
     extends Runnable
     with LazyLogging {
   type GrainType = T
@@ -103,14 +113,6 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
   private[dispatcher] val grainMap: ConcurrentMap[Mailbox, Grain] =
     new ConcurrentHashMap[Mailbox, Grain]()
 
-  // Create test mailbox and grains (the grain will have id 1234 passed from the slave)
-  val testMbox: Mailbox = new Mailbox(grain)
-  println(testMbox)
-  // Put the test mailbox in the index and so on
-  mailboxIndex.put("1234", testMbox)
-  grainMap.put(testMbox, grain)
-  println(grain)
-
   // Create the message receiver and start it
   private val messageReceiver: MessageReceiver =
     new MessageReceiver(mailboxIndex, port)
@@ -118,10 +120,10 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
   mRecvThread.setName(s"MessageReceiver-$port")
   mRecvThread.start()
 
-  logger.info(s"Dispatcher for ${grain.getClass} started in port $port")
+  logger.info(
+    s"Dispatcher for ${classTag[T].runtimeClass.getName} started in port $port")
 
   override def run(): Unit = {
-
     while (running) {
       // Iterate through the mailboxes and if one is not empty schedule it
       if (this.grainMap.isEmpty)
@@ -140,7 +142,8 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
   }
 
   def stop() = {
-    logger.debug(s"Stopping dispatcher for ${grain.getClass}.")
+    logger.debug(
+      s"Stopping dispatcher for ${classTag[T].runtimeClass.getClass}.")
     messageReceiver.stop()
     this.running = false
   }

@@ -3,6 +3,7 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
+import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
 import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
@@ -19,6 +20,88 @@ import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.{ClassTag, classTag}
+
+object Slave {
+  def apply(): SlaveBuilder = new SlaveBuilder()
+
+}
+
+class SlaveBuilder extends LazyLogging {
+
+  private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
+  private var masterConfig: ServerConfig = ServerConfig("", 0, 0)
+
+  private var executionContext: ExecutionContext = null
+  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+    mutable.MutableList()
+
+  def setHost(hostt: String): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(host = hostt)
+    this
+  }
+
+  def setUDPPort(udp: Int): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(udpPort = udp)
+    this
+  }
+
+  def setTCPPort(tcp: Int): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(tcpPort = tcp)
+    this
+  }
+
+  def setMasterHost(hostt: String): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(host = hostt)
+    this
+  }
+
+  def setMasterUDPPort(udp: Int): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(udpPort = udp)
+    this
+  }
+
+  def setMasterTCPPort(tcp: Int): SlaveBuilder = {
+    this.masterConfig = masterConfig.copy(tcpPort = tcp)
+    this
+  }
+
+  def setServerConfig(serverConfig: ServerConfig): SlaveBuilder = {
+    this.serverConfig = serverConfig
+    this
+  }
+
+  def setExecutionContext(executionContext: ExecutionContext): SlaveBuilder = {
+    this.executionContext = executionContext
+    this
+  }
+
+  def setGrainPorts(ports: Set[Int]): SlaveBuilder = {
+    this.serverConfig = serverConfig.copy(grainPorts = ports)
+    this
+  }
+
+  def registerGrain[T <: Grain: ClassTag] = {
+    val tag = classTag[T]
+
+    if (this.grains.contains(tag)) {
+      logger.warn(s"${tag.runtimeClass.getName} already registered in slave.")
+    }
+
+    this.grains += classTag[T]
+    this
+  }
+
+  def build(): Slave = {
+    if (executionContext == null) {
+      logger.warn(
+        "Master has no execution context set. Will use the global one.")
+      this.executionContext = ExecutionContext.global
+    }
+
+    new Slave(serverConfig, masterConfig, executionContext, grains.toList)
+  }
+}
 
 /**
   * Slave silo, handles request from the master
@@ -29,14 +112,10 @@ import scala.concurrent.ExecutionContext
 class Slave(slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext,
-            report: Boolean)
+            registeredGrains: List[ClassTag[_ <: Grain]] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
-
-  // For now just define it as a gRPC endpoint
-  self =>
-  private[this] var slave: Server = null
 
   // Hashmap to save the grain references
   private val grainMap: mutable.HashMap[String, GrainDescriptor] =
@@ -64,11 +143,8 @@ class Slave(slaveConfig: ServerConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
-  // Runtime object that keeps track of grain activity
-  val runtime: Runtime =
-    new Runtime(slaveConfig, protocol.shortUUID(uuid), report = report)
-
-  val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
+  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  private var portsUsed: Set[Int] = Set()
 
   /**
     * Starts the slave.
@@ -87,46 +163,34 @@ class Slave(slaveConfig: ServerConfig,
     slaveThread.setName(f"slave-$shortId")
     slaveThread.start()
 
-    // Start runtime thread
-    val runtimeThread = new Thread(runtime)
-    runtimeThread.setName("runtime")
-    //runtimeThread.start()
-
-    val dispatcherThread = new Thread(dispatcher)
-    dispatcherThread.setName("Dispatcher")
-    dispatcherThread.start()
-
-    startgRPC()
-
+    // Starting the dispatchers
+    logger.debug("Starting dispatchers.")
+    startMainDispatcher()
+    startGrainDispatchers()
   }
 
-  /**
-    * Starts the gRPC server.
-    */
-  private def startgRPC() = {
-    slave = ServerBuilder
-      .forPort(slaveConfig.rpcPort)
-      .addService(ActivateGrainServiceGrpc.bindService(new ActivateGrainImpl(),
-                                                       executionContext))
-      .addService(
-        CreateGrainGrpc.bindService(new CreateGrainImpl("slave", runtime),
-                                    executionContext))
-      .build
-      .start
+  def startMainDispatcher() = {
+    //TODO dispatcher here for 'general grain'
+    //use this masterConfig.tcpPort
+  }
 
-//    ServerBuilder
-//      .forPort(50400)
-//      .addService(GreeterGrpc.bindService(new GreeterImpl(), executionContext))
-//      .build
-//      .start
-
-    logger.info(
-      "Slave server started, listening on port " + slaveConfig.rpcPort)
-    sys.addShutdownHook {
-      logger.error("*** shutting down gRPC server since JVM is shutting down")
-      // TODO if we're gonna have more services we should get a list of services so we can shut them down correctly
-      this.stop()
+  def startGrainDispatchers() = {
+    registeredGrains.foreach { x =>
+      dispatchers = new Dispatcher(getFreePort)(x) :: dispatchers
     }
+  }
+
+  def getFreePort: Int = {
+    val portsLeft = slaveConfig.grainPorts.diff(portsUsed)
+
+    if (portsLeft.size == 0) {
+      this.stop()
+      throw new RuntimeException("No free ports left to start grain socket.")
+    }
+
+    val port = portsLeft.toList(0)
+    portsUsed = Set(port).union(portsUsed)
+    return port
   }
 
   /** Control loop. */
@@ -337,10 +401,10 @@ class Slave(slaveConfig: ServerConfig,
       Packet(PacketType.SHUTDOWN, this.uuid, System.currentTimeMillis())
     packetManager.send(shutdown, masterConfig.host, masterConfig.udpPort)
 
-    // cancel itself
-    if (slave != null) {
-      slave.shutdown()
-    }
+    // Stop dispatchers
+    this.dispatchers.foreach(_.stop())
+
+    // Cancel packet manager and stop slave.
     this.packetManager.cancel()
     this.running = false
     this.slaves.clear()

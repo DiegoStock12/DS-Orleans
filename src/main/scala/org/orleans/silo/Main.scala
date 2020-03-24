@@ -14,15 +14,27 @@ object Main {
     /**
       * A simple test-scenario is run here.
       */
-    val master = MasterBuilder()
+    val master = Master()
       .registerGrain[GreeterGrain]
-      .setServerConfig(ServerConfig("localhost", 1500, 50050))
+      .setHost("localhost")
+      .setTCPPort(1400)
+      .setUDPPort(1500)
       .setExecutionContext(ExecutionContext.global)
+      .setGrainPorts((1501 to 1510).toSet)
       .build()
-    val slave = new Slave(slaveConfig = ServerConfig("localhost", 1600, 50060),
-                          masterConfig = ServerConfig("localhost", 1500, 50050),
-                          ExecutionContext.global,
-                          report = true)
+
+    val slave = Slave()
+      .registerGrain[GreeterGrain]
+      .setHost("localhost")
+      .setTCPPort(1600)
+      .setUDPPort(1700)
+      .setMasterHost("localhost")
+      .setMasterTCPPort(1400)
+      .setMasterUDPPort(1500)
+      .setExecutionContext(ExecutionContext.global)
+      .setGrainPorts((1601 to 1610).toSet)
+      .build()
+
     master.start()
     slave.start()
 
@@ -32,6 +44,9 @@ object Main {
     // Let see if other slaves are aware of each other.
     println(slave.getSlaves())
     println(master.getSlaves())
+
+    master.stop()
+    slave.stop()
   }
 
   /** Very hacky way to set the log level */

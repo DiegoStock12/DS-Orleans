@@ -21,6 +21,7 @@ import org.orleans.silo.communication.{
   ConnectionProtocol => protocol
 }
 import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
@@ -36,15 +37,31 @@ import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 import scala.reflect._
 
-object MasterBuilder {
+object Master {
   def apply(): MasterBuilder = new MasterBuilder()
 }
+
 class MasterBuilder extends LazyLogging {
 
-  private var serverConfig: ServerConfig = null
+  private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
   private var executionContext: ExecutionContext = null
   private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
     mutable.MutableList()
+
+  def setHost(hostt: String): MasterBuilder = {
+    this.serverConfig = serverConfig.copy(host = hostt)
+    this
+  }
+
+  def setUDPPort(udp: Int): MasterBuilder = {
+    this.serverConfig = serverConfig.copy(udpPort = udp)
+    this
+  }
+
+  def setTCPPort(tcp: Int): MasterBuilder = {
+    this.serverConfig = serverConfig.copy(tcpPort = tcp)
+    this
+  }
 
   def setServerConfig(serverConfig: ServerConfig): MasterBuilder = {
     this.serverConfig = serverConfig
@@ -53,6 +70,11 @@ class MasterBuilder extends LazyLogging {
 
   def setExecutionContext(executionContext: ExecutionContext): MasterBuilder = {
     this.executionContext = executionContext
+    this
+  }
+
+  def setGrainPorts(ports: Set[Int]): MasterBuilder = {
+    this.serverConfig = serverConfig.copy(grainPorts = ports)
     this
   }
 
@@ -68,9 +90,6 @@ class MasterBuilder extends LazyLogging {
   }
 
   def build(): Master = {
-    if (serverConfig == null)
-      throw new IllegalArgumentException("Master has no serverconfig set.")
-
     if (executionContext == null) {
       logger.warn(
         "Master has no execution context set. Will use the global one.")
@@ -116,6 +135,9 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
+  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  private var portsUsed: Set[Int] = Set()
+
   /**
     * Starts the master.
     * - Creates a main control loop to keep track of slaves and send heartbeats.
@@ -134,6 +156,34 @@ class Master(masterConfig: ServerConfig,
     masterThread.setName(f"master-$shortId")
     masterThread.start()
 
+    // Starting the dispatchers
+    logger.debug("Starting dispatchers.")
+    startMainDispatcher()
+    startGrainDispatchers()
+  }
+
+  def startMainDispatcher() = {
+    //TODO dispatcher here for 'general grain'
+    //use this masterConfig.tcpPort
+  }
+
+  def startGrainDispatchers() = {
+    registeredGrains.foreach { x =>
+      dispatchers = new Dispatcher(getFreePort)(x) :: dispatchers
+    }
+  }
+
+  def getFreePort: Int = {
+    val portsLeft = masterConfig.grainPorts.diff(portsUsed)
+
+    if (portsLeft.size == 0) {
+      this.stop()
+      throw new RuntimeException("No free ports left to start grain socket.")
+    }
+
+    val port = portsLeft.toList(0)
+    portsUsed = Set(port).union(portsUsed)
+    return port
   }
 
   /** Control loop. */
@@ -332,10 +382,10 @@ class Master(masterConfig: ServerConfig,
     // Wait a bit until all slaves are removed.
     Thread.sleep(SLEEP_TIME * 5)
 
-    // Cancel packet manager and control thread.
-    if (master != null) {
-      master.shutdown()
-    }
+    // Stop dispatchers
+    this.dispatchers.foreach(_.stop())
+
+    // Cancel packet manager and stop master.
     this.packetManager.cancel()
     this.running = false
     this.slaves.clear()
