@@ -3,7 +3,6 @@ package org.orleans.silo.Services.Client
 import io.grpc.ManagedChannelBuilder
 import org.orleans.silo.Services.Service
 import org.orleans.silo.Services.Service.Service
-import org.orleans.silo.Test.GreeterClient
 import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
@@ -28,9 +27,6 @@ object ServiceFactory {
       .usePlaintext()
       .build()
     service match {
-      case Service.Hello =>
-        val stub = GreeterGrpc.stub(c)
-        new GreeterClient(c, stub)
       case Service.ActivateGrain =>
         val stub = ActivateGrainServiceGrpc.stub(c)
         new ActivateGrainClient(c, stub)
