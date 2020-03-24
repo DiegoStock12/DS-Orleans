@@ -11,11 +11,11 @@ libraryDependencies ++= Seq(
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "org.json4s" %% "json4s-jackson" % "3.7.0-M2",
   "org.mongodb.scala" %% "mongo-scala-driver" % "2.9.0"
-//  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
-//  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
-//  "com.typesafe" % "config" % "1.3.2",
-//  "org.typelevel" %% "cats-core" % "2.1.1",
-//  "org.typelevel" %% "cats-effect" % "2.1.2"
+  //  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
+  //  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
+  //  "com.typesafe" % "config" % "1.3.2",
+  //  "org.typelevel" %% "cats-core" % "2.1.1",
+  //  "org.typelevel" %% "cats-effect" % "2.1.2"
 )
 
 // Necessary for compiling protobuf files
