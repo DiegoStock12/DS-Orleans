@@ -4,24 +4,90 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
-import org.orleans.silo.Services.Impl.{CreateGrainImpl, GrainSearchImpl, UpdateStateServiceImpl}
-import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Services.Impl.{
+  CreateGrainImpl,
+  GrainSearchImpl,
+  UpdateStateServiceImpl
+}
+import org.orleans.silo.communication.ConnectionProtocol.{
+  Packet,
+  PacketType,
+  SlaveInfo
+}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
-import org.orleans.silo.utils.{GrainDescriptor, GrainState, ServerConfig, SlaveDetails}
+import org.orleans.silo.utils.{
+  GrainDescriptor,
+  GrainState,
+  ServerConfig,
+  SlaveDetails
+}
 
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.ClassTag
+import scala.reflect._
 
+object MasterBuilder {
+  def apply(): MasterBuilder = new MasterBuilder()
+}
+class MasterBuilder extends LazyLogging {
+
+  private var serverConfig: ServerConfig = null
+  private var executionContext: ExecutionContext = null
+  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+    mutable.MutableList()
+
+  def setServerConfig(serverConfig: ServerConfig): MasterBuilder = {
+    this.serverConfig = serverConfig
+    this
+  }
+
+  def setExecutionContext(executionContext: ExecutionContext): MasterBuilder = {
+    this.executionContext = executionContext
+    this
+  }
+
+  def registerGrain[T <: Grain: ClassTag] = {
+    val tag = classTag[T]
+
+    if (this.grains.contains(tag)) {
+      logger.warn(s"${tag.runtimeClass.getName} already registered in master.")
+    }
+
+    this.grains += classTag[T]
+  }
+
+  def build(): Master = {
+    if (serverConfig == null)
+      throw new IllegalArgumentException("Master has no serverconfig set.")
+
+    if (executionContext == null) {
+      logger.warn(
+        "Master has no execution context set. Will use the global one.")
+      this.executionContext = ExecutionContext.global
+    }
+
+    new Master(serverConfig, executionContext, grains.toList)
+  }
+}
 
 /**
- * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
- * @param masterConfig Server configuration for the master
- * @param executionContext Execution context for the RPC services
- */
-class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
+  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
+  * @param masterConfig Server configuration for the master
+  * @param executionContext Execution context for the RPC services
+  */
+class Master(masterConfig: ServerConfig,
+             executionContext: ExecutionContext,
+             registeredGrains: List[ClassTag[_ <: Grain]] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -50,7 +116,7 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     new PacketManager(this, masterConfig.udpPort)
 
   // Runtime object that keeps track of grain activity
-  val runtime : Runtime = new Runtime(masterConfig, "master", false)
+  val runtime: Runtime = new Runtime(masterConfig, "master", false)
 
   /**
     * Starts the master.
@@ -81,19 +147,18 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
     * Starts the gRPC server.
     */
   def startgRPC() = {
-    grainMap.put(
-      "diegoalbo",
-      List(GrainDescriptor(GrainState.Activating, SlaveDetails("localhost", 50400))))
+    grainMap.put("diegoalbo",
+                 List(
+                   GrainDescriptor(GrainState.Activating,
+                                   SlaveDetails("localhost", 50400))))
     master = ServerBuilder
       .forPort(masterConfig.rpcPort)
       .addService(GrainSearchGrpc.bindService(new GrainSearchImpl(grainMap),
                                               executionContext))
-      .addService(
-        UpdateGrainStateServiceGrpc.bindService(new UpdateStateServiceImpl(grainMap),
-                                                executionContext))
-      .addService(
-        CreateGrainGrpc.bindService(new CreateGrainImpl("master", runtime),
-          executionContext))
+      .addService(UpdateGrainStateServiceGrpc
+        .bindService(new UpdateStateServiceImpl(grainMap), executionContext))
+      .addService(CreateGrainGrpc
+        .bindService(new CreateGrainImpl("master", runtime), executionContext))
       .build
       .start
 

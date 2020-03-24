@@ -13,11 +13,14 @@ object Main {
     /**
       * A simple test-scenario is run here.
       */
-    val master =
-      new Master(ServerConfig("localhost", 1500, 50050), ExecutionContext.global)
-    val slave = new Slave(slaveConfig =  ServerConfig("localhost", 1600, 50060),
+    val master = MasterBuilder()
+      .setServerConfig(ServerConfig("localhost", 1500, 50050))
+      .setExecutionContext(ExecutionContext.global)
+      .build()
+    val slave = new Slave(slaveConfig = ServerConfig("localhost", 1600, 50060),
                           masterConfig = ServerConfig("localhost", 1500, 50050),
-                          ExecutionContext.global, report = true)
+                          ExecutionContext.global,
+                          report = true)
 //    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
 //                            masterConfig = ServerConfig("localhost", 1500, 50050),
 //                            ExecutionContext.global, report = false)
