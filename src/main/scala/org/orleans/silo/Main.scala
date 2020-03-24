@@ -21,16 +21,8 @@ object Main {
                           masterConfig = ServerConfig("localhost", 1500, 50050),
                           ExecutionContext.global,
                           report = true)
-//    val slave2 = new Slave(slaveConfig =  ServerConfig("localhost", 1601, 50061),
-//                            masterConfig = ServerConfig("localhost", 1500, 50050),
-//                            ExecutionContext.global, report = false)
-    //slave.start()
-    //slave2.start()
-    //slave3.start()
-
     master.start()
     slave.start()
-    //slave2.start()
 
     // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)
@@ -38,16 +30,6 @@ object Main {
     // Let see if other slaves are aware of each other.
     println(slave.getSlaves())
     println(master.getSlaves())
-
-    // Stop one slave.
-    //slave.stop()
-    //Thread.sleep(1000 * 15)
-
-    // See if the awareness is updated.
-    //println(master.getSlaves())
-
-    // Stop all by stopping the master.
-    //master.stop()
   }
 
   /** Very hacky way to set the log level */
