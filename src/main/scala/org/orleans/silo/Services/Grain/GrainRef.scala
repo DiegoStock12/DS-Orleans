@@ -5,8 +5,8 @@ import java.net.Socket
 
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 object GrainRef extends LazyLogging{
   def apply(id: String, address: String, port: Int): GrainRef = new GrainRef(id, address, port)
@@ -16,8 +16,6 @@ object GrainRef extends LazyLogging{
 // TODO maybe for fire and forget we could use DatagramSocket, but then
 // we could not be sure that it has been received
 class GrainRef private(val id: String, val address: String, val port : Int) {
-
-  import GrainRef._
 
   private var s: Socket = _
   private var outStream : ObjectOutputStream = _

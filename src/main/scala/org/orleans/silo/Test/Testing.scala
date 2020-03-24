@@ -1,10 +1,8 @@
 package org.orleans.silo.Test
 
-import java.io.{ObjectInputStream, ObjectOutputStream}
-
 import org.orleans.silo.Services.Grain.GrainRef
-import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 
 
@@ -12,7 +10,7 @@ object Testing {
   // Just a test for the new Service client
   def main(args: Array[String]): Unit = {
     println("Trying to get the socket")
-    // Socket for the dispatcher
+
     // Get the grain reference
     val g = GrainRef("1234", "localhost", 2500)
 
@@ -24,11 +22,6 @@ object Testing {
       g ! "hello"
     }
 
-    // TODO right now either one or the other calls work, because the connection in the dispatcher closes
-    // after addressing the first request, we need some kind of task queue that points to the place to reply to
-    // Maybe add a queue to the dispatcher from where the threads execute!
-    Thread.sleep(5000)
-
 
     // Asynchronous request
     time {
@@ -38,7 +31,7 @@ object Testing {
       })
     }
 
-    Thread.sleep(5000)
+    Thread.sleep(1500)
 
 
     //    val f = g ? 2
