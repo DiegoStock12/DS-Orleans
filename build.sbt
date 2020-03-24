@@ -5,19 +5,12 @@ scalaVersion := "2.12.10"
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
 
-val exclusionRules = Seq(
-  ExclusionRule("io.grpc", "grpc-okhttp"),
-  ExclusionRule("io.grpc", "grpc-netty"),
-  ExclusionRule( "io.grpc", "grpc-core"),
-)
-
 libraryDependencies ++= Seq(
   // ScalaPB dependencies
   "io.grpc" % "grpc-netty" % scalapb.compiler.Version.grpcJavaVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % scalapb.compiler.Version.scalapbVersion,
   "org.json4s" %% "json4s-jackson" % "3.7.0-M2",
   "org.mongodb.scala" %% "mongo-scala-driver" % "2.9.0",
-  "me.dinowernli" % "java-grpc-prometheus" % "0.3.0" excludeAll(exclusionRules:_*),
 //  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
 //  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
 //  "com.typesafe" % "config" % "1.3.2",

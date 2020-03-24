@@ -5,15 +5,14 @@ import java.util.UUID
 import java.util.concurrent.Executors.newSingleThreadExecutor
 
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{ServerBuilder, ServerInterceptors, ServerServiceDefinition}
-import me.dinowernli.grpc.prometheus.{Configuration, MonitoringServerInterceptor}
+import io.grpc.{ServerBuilder, ServerServiceDefinition}
 import org.orleans.silo.Services.Client.{CreateGrainClient, ServiceFactory}
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.createGrain.CreateGrainGrpc.CreateGrain
 import org.orleans.silo.createGrain.{CreationRequest, CreationResponse}
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.runtime.Runtime.GrainInfo
-import org.orleans.silo.utils.{GrainState, RegistryFactory}
+import org.orleans.silo.utils.GrainState
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -134,15 +133,17 @@ class CreateGrainImpl(private val serverType: String,
     // Start the grain
     ServerBuilder
       .forPort(port)
-      .addService(
-        ServerInterceptors.intercept(ssd,
-          MonitoringServerInterceptor.create(Configuration.allMetrics().withCollectorRegistry(RegistryFactory.getRegistry(id)))))
+//      .addService(
+//        ServerInterceptors.intercept(ssd,
+//          MonitoringServerInterceptor.create(Configuration.allMetrics().withCollectorRegistry(RegistryFactory.getRegistry(id)))))
+      .addService(ssd)
       .build
       .start
 
     // Save the grain information in the runtime
-    runtime.grainMap.put(port, GrainInfo(id, GrainState.InMemory, impl.asInstanceOf[Grain],
-      grainType = request.serviceName, grainPackage = request.packageName))
+    runtime.grainMap.put(id, GrainInfo(port, GrainState.InMemory, impl.asInstanceOf[Grain],
+      grainType = request.serviceName, grainPackage = request.packageName, 0))
+
     runtime.grainMap.forEach((k, v) => logger.info(s"$k --> $v"))
 
     Thread.sleep(500)

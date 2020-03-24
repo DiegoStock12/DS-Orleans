@@ -9,9 +9,11 @@ import org.orleans.silo.communication.{PacketListener, PacketManager, Connection
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Impl.{GrainSearchImpl, UpdateStateServiceImpl}
+import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
 import org.orleans.silo.grainSearch.GrainSearchGrpc
 import org.orleans.silo.runtime.Runtime
+import org.orleans.silo.runtime.Runtime.GrainInfo
 import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
 import org.orleans.silo.utils.{GrainDescriptor, GrainState, ServerConfig, SlaveDetails}
 
@@ -54,6 +56,7 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
 
   // Runtime object that keeps track of grain activity
   val runtime : Runtime = new Runtime(masterConfig, "master", false)
+  this.runtime.grainMap.put("1234", GrainInfo(10,GrainState.Activating, new GreeterGrain("1234"), "asd","asd", 0))
 
   /**
    * Starts the master.
@@ -277,8 +280,24 @@ class Master(masterConfig: ServerConfig, executionContext: ExecutionContext)
    * @param port The port receiving from.
    */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.info(s"Processing load data: ${packet.data}")
-    //TODO Update the information about the Load in the runtime.
+    logger.warn(s"Processing load data: ${packet.data}")
+    packet.data.foreach{d => d.split(":") match {
+      case Array(id, load) => {
+        if (runtime.grainMap.containsKey(id)) {
+          val grainInfo: GrainInfo = runtime.grainMap.get(id)
+          if (grainInfo.load != load.toInt) {
+            val newGrainInfo: GrainInfo = GrainInfo(grainInfo.port, grainInfo.state, grainInfo.grain,
+              grainInfo.grainType, grainInfo.grainPackage, load.toInt)
+            runtime.grainMap.replace(id, newGrainInfo)
+          }
+        }
+        else {
+          logger.warn("Slave reports about grain that master doesn't know about.")
+        }
+      }
+      case _ => logger.warn("Couldn't parse packet with metrics.")
+    }}
+    logger.warn(s"${this.runtime.grainMap}")
   }
 
   /**

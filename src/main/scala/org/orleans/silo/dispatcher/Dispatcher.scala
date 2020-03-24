@@ -6,6 +6,7 @@ import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap, Executors, Thread
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.metrics.{Registry, RegistryFactory}
 
 
 // TODO how to deal with replicated grains that could have the same ID?
@@ -47,6 +48,9 @@ private class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbo
             // Add a message to the queue
             logger.info(s"Adding to queue $id message $msg")
             this.mailboxIndex.get(id).addMessage(Message(id, msg, Sender(oos)))
+            logger.info(s"Increasing the counter for messages received for grain: ${id}")
+            val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
+            registry.addRequestReceived()
             logger.info(s"New size of the queue: ${this.mailboxIndex.get(id).inbox.size()}")
           }
           else{

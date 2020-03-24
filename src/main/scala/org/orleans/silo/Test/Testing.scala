@@ -32,31 +32,6 @@ object Testing {
     }
 
     Thread.sleep(1500)
-
-
-    //    val f = g ? 2
-    //    f onComplete({
-    //      case Success(value) => println(value)
-    //      case _ => println("not working")
-    //    })
-    //
-    //    println(f)
-    //    Thread.sleep(4000)
-
-
-    //          val dispatcherSocket: Socket = new Socket("localhost", 2500)
-    //          val oos: ObjectOutputStream = new ObjectOutputStream(dispatcherSocket.getOutputStream)
-    //          val ois: ObjectInputStream = new ObjectInputStream(dispatcherSocket.getInputStream)
-    //          val request = HelloRequest("Diego")
-    //        time {
-    //          oos.writeObject(request)
-    //          println(s"sent $request to dispatcher")
-    //          val o = ois.readObject()
-    //          println(o)
-    //        }
-
-    //Thread.sleep(15000)
-
   }
 
   def time[R](block: => R): R = {

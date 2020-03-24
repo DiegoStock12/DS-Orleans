@@ -11,8 +11,9 @@ import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.dispatcher.Dispatcher
+import org.orleans.silo.metrics.RegistryFactory
 import org.orleans.silo.runtime.Runtime
-import org.orleans.silo.utils.{GrainDescriptor, RegistryFactory, ServerConfig}
+import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -67,6 +68,8 @@ class Slave(slaveConfig: ServerConfig,
 
   val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
 
+//  val dispatcher = new Dispatcher(new GreeterGrain("1234"), 2500)
+
   /**
    * Starts the slave.
    * - Creates a main control loop to send information to the master.
@@ -92,6 +95,11 @@ class Slave(slaveConfig: ServerConfig,
     val dispatcherThread = new Thread(dispatcher)
     dispatcherThread.setName("Dispatcher")
     dispatcherThread.start()
+
+//    val dispatcherThread = new Thread(dispatcher)
+//    dispatcherThread.setName("Dispatcher")
+//    dispatcherThread.start()
+
 
     startgRPC()
 
@@ -182,7 +190,7 @@ class Slave(slaveConfig: ServerConfig,
    * @param data
    * @return List of String representation of the load data.
    */
-  def prepareMetricsData(data: Map[String, Double]): List[String] = {
+  def prepareMetricsData(data: Map[String, Int]): List[String] = {
     var prepared: List[String] = List()
     for ((id, load) <- data) {
       val s = id + ":" + load.toString
