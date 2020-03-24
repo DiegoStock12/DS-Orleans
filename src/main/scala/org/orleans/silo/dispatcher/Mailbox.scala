@@ -6,6 +6,7 @@ import java.util.concurrent.LinkedBlockingQueue
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.metrics.{Registry, RegistryFactory}
 
 /**
  * Message that will be saved
@@ -76,6 +77,9 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
     while(inbox.peek() != null){
       val msg : Message = inbox.poll()
       grain.receive((msg.msg, msg.sender))
+      logger.info(s"Increasing the counter for messages processed for grain: ${id}")
+      val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
+      registry.addRequestHandled()
       msg.sender.stream.close()
     }
     this.isRunning = false

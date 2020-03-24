@@ -1,4 +1,5 @@
 package org.orleans.silo
+
 import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
@@ -15,6 +16,7 @@ import org.orleans.silo.communication.{
 }
 import org.orleans.silo.createGrain.CreateGrainGrpc
 import org.orleans.silo.dispatcher.Dispatcher
+import org.orleans.silo.metrics.RegistryFactory
 import org.orleans.silo.runtime.Runtime
 import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
 
@@ -171,7 +173,7 @@ class Slave(slaveConfig: ServerConfig,
 
   def startMainDispatcher() = {
     //TODO dispatcher here for 'general grain'
-    //use this masterConfig.tcpPort
+    //use this serverConfig.tcpPort
   }
 
   def startGrainDispatchers() = {
@@ -195,7 +197,8 @@ class Slave(slaveConfig: ServerConfig,
 
   /** Control loop. */
   def run(): Unit = {
-    var oldTime: Long = System.currentTimeMillis()
+    var oldTimeHeartbeat: Long = System.currentTimeMillis()
+    var oldTimeMetrics: Long = System.currentTimeMillis()
 
     while (running) {
       // If not connected to the master, lets do a handshake.
@@ -205,10 +208,11 @@ class Slave(slaveConfig: ServerConfig,
 
       // Keep track of local time, to ensure sending heartbeats on time.
       val newTime: Long = System.currentTimeMillis()
-      val timeDiff = newTime - oldTime
+      val timeDiffHeartbeat = newTime - oldTimeHeartbeat
+      val timeDiffMetrics = newTime - oldTimeMetrics
 
       // Check if it is time to send heartbeats again.
-      if (timeDiff >= protocol.heartbeatInterval) {
+      if (timeDiffHeartbeat >= protocol.heartbeatInterval) {
         logger.debug("Sending heartbeats to master.")
 
         // Send heartbeat to the master.
@@ -216,7 +220,24 @@ class Slave(slaveConfig: ServerConfig,
         packetManager.send(heartbeat, masterConfig.host, masterConfig.udpPort)
 
         // Update time
-        oldTime = newTime
+        oldTimeHeartbeat = newTime
+      }
+
+      // Check if it is time to send load info again.
+      if (timeDiffMetrics >= protocol.metricsInterval) {
+        logger.debug("Sending load metrics to master.")
+
+        val data = RegistryFactory.getRegistryLoads()
+        if (data.nonEmpty) {
+          // Send load metrics to the master.
+          val metrics = Packet(PacketType.METRICS,
+                               this.uuid,
+                               newTime,
+                               prepareMetricsData(data))
+          packetManager.send(metrics, masterConfig.host, masterConfig.udpPort)
+        }
+        // Update time
+        oldTimeMetrics = newTime
       }
 
       verifyMasterAlive()
@@ -224,6 +245,21 @@ class Slave(slaveConfig: ServerConfig,
       // Now time to sleep :)
       Thread.sleep(100)
     }
+  }
+
+  /**
+    * Transforms map with load per service to String representation.
+    *
+    * @param data
+    * @return List of String representation of the load data.
+    */
+  def prepareMetricsData(data: Map[String, Int]): List[String] = {
+    var prepared: List[String] = List()
+    for ((id, load) <- data) {
+      val s = id + ":" + load.toString
+      prepared = s :: prepared
+    }
+    prepared
   }
 
   /**
@@ -275,9 +311,10 @@ class Slave(slaveConfig: ServerConfig,
   /**
     * Event-driven method which is triggered when a packet is received.
     * Forwards the packet to the correct handler.
+    *
     * @param packet the received packet.
-    * @param host the host receiving from.
-    * @param port the port receiving from.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
     */
   override def onReceive(
       packet: Packet,
@@ -299,8 +336,8 @@ class Slave(slaveConfig: ServerConfig,
     * 1). If a welcome packet is received, the `masterInfo` is updated with the correct UUID.
     *
     * @param packet The welcome packet.
-    * @param host The host receiving from.
-    * @param port The port receiving from.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
     */
   def processWelcome(packet: Packet, host: String, port: Int): Unit = {
     masterInfo = MasterInfo(packet.uuid, System.currentTimeMillis())
@@ -316,8 +353,8 @@ class Slave(slaveConfig: ServerConfig,
     * 2) Master information gets updated with the latest heartbeat, so that we know its alive.
     *
     * @param packet The heartbeat packet.
-    * @param host The host receiving from.
-    * @param port The port receiving from.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
     */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
     if (packet.uuid != masterInfo.uuid) {
@@ -335,8 +372,8 @@ class Slave(slaveConfig: ServerConfig,
     * 1). Add slave to local table (if not already there).
     *
     * @param packet the connect packet.
-    * @param host the host receiving from.
-    * @param port the port receiving from.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
     */
   def processSlaveConnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is already in the cluster, we will not add it again.
@@ -354,8 +391,8 @@ class Slave(slaveConfig: ServerConfig,
     * 1). Remove slave from local table (if there).
     *
     * @param packet the disconnect packet.
-    * @param host the host receiving from.
-    * @param port the port receiving from.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
     */
   def processSlaveDisconnect(packet: Packet, host: String, port: Int): Unit = {
     // If slave is not in the cluster, we will ignore this packet.
@@ -369,9 +406,10 @@ class Slave(slaveConfig: ServerConfig,
 
   /**
     * Processes a shutdown packet by stopping the slave.
+    *
     * @param packet the shutdown packet.
-    * @param host the host receiving from.
-    * @param port the port receiving from.
+    * @param host   the host receiving from.
+    * @param port   the port receiving from.
     */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Check if it is actually the master.

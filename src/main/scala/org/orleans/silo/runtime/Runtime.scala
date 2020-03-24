@@ -10,19 +10,21 @@ import java.{lang, util}
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{ServerBuilder, ServerServiceDefinition}
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.utils.GrainState.GrainState
-import org.orleans.silo.utils.ServerConfig
+import org.orleans.silo.utils.{GrainState, ServerConfig}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 
 object Runtime{
   // Class that will serve as index for the grain map
-  case class GrainInfo(id: String,
+  case class GrainInfo(port: Int,
                        state:GrainState,
                        grain: Grain,
                        grainType: String,
-                       grainPackage: String)
+                       grainPackage: String,
+                       load: Int)
 
   val GRPC_SUFFIX = "Grpc"
   val GRPC_SUBCLASS_SUFFIX = "Grpc$"
@@ -48,7 +50,7 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
   import Runtime._
 
   // Hashmap that will save the current grain information, indexed by port
-  val grainMap : ConcurrentHashMap[Int, GrainInfo] = new ConcurrentHashMap[Int, GrainInfo]()
+  val grainMap : ConcurrentHashMap[String, GrainInfo] = new ConcurrentHashMap[String, GrainInfo]()
 
   // Free ports that the Server will manage to give to Grains
   // We keep a concurrent hashset so the elements can be added and removed safely
@@ -83,6 +85,7 @@ class Runtime(val config: ServerConfig, id: String, report: Boolean)
    * - If a grain is too loaded, initiate the replication
    */
   override def run(): Unit = {
+    //grainMap.put("1234", GrainInfo(1, GrainState.InMemory, new GreeterGrain("1234"), 0))
     logger.info("Runtime running")
 
     // Start a listener thread that will look for new grains
