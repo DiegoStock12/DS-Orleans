@@ -128,17 +128,22 @@ class CreateGrainImpl(private val serverType: String,
     // Get a port and an id for the new service and create it
 
     val port = runtime.getFreePort
+    logger.warn(port.toString)
 
     // Start the grain
     ServerBuilder
       .forPort(port)
+//      .addService(
+//        ServerInterceptors.intercept(ssd,
+//          MonitoringServerInterceptor.create(Configuration.allMetrics().withCollectorRegistry(RegistryFactory.getRegistry(id)))))
       .addService(ssd)
       .build
       .start
 
     // Save the grain information in the runtime
-    runtime.grainMap.put(port, GrainInfo(id, GrainState.InMemory, impl.asInstanceOf[Grain],
-      grainType = request.serviceName, grainPackage = request.packageName))
+    runtime.grainMap.put(id, GrainInfo(port, GrainState.InMemory, impl.asInstanceOf[Grain],
+      grainType = request.serviceName, grainPackage = request.packageName, 0))
+
     runtime.grainMap.forEach((k, v) => logger.info(s"$k --> $v"))
 
     Thread.sleep(500)
