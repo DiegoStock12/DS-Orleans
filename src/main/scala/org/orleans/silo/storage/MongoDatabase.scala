@@ -6,6 +6,7 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Services.Grain.Grain.Receive
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -19,6 +20,7 @@ class TestGrain(_id: String) extends Grain(_id) {
   val someField: String = "testtest"
 
   override def toString = s"TestGrain(${_id}, $someField)"
+  override def receive: Receive = ???
 }
 
 object DatabaseConnectionExample extends LazyLogging {
