@@ -26,7 +26,7 @@ object Sender{
  * How we're gonna pass the sender to the grain so he can reply to the message
  * @param stream ObjectOutputStream that the sender can use to write back to the source
  */
-class Sender(private val stream: ObjectOutputStream){
+class Sender(private[dispatcher] val stream: ObjectOutputStream){
   def !(msg: Any) = stream.writeObject(msg)
 }
 
@@ -76,6 +76,7 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
     while(inbox.peek() != null){
       val msg : Message = inbox.poll()
       grain.receive((msg.msg, msg.sender))
+      msg.sender.stream.close()
     }
     this.isRunning = false
   }

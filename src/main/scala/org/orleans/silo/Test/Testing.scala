@@ -19,7 +19,10 @@ object Testing {
     // Send a message to the grain
     // Synchronous request
     println("Sending hello message to grain 1234")
-    g ! "hello"
+    time {
+      g ! "hello"
+      g ! "hello"
+    }
 
     // TODO right now either one or the other calls work, because the connection in the dispatcher closes
     // after addressing the first request, we need some kind of task queue that points to the place to reply to
@@ -28,10 +31,12 @@ object Testing {
 
 
     // Asynchronous request
-    g ? 2 onComplete ({
-      case Success(value) => println(value)
-      case _ => println("not working")
-    })
+    time {
+      g ? 2 onComplete ({
+        case Success(value) => println(value)
+        case _ => println("not working")
+      })
+    }
 
     Thread.sleep(5000)
 

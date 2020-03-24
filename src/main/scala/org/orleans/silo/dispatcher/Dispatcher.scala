@@ -22,6 +22,7 @@ private class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbo
   // Create the socket
   val requestSocket: ServerSocket = new ServerSocket(port)
   logger.info(s"Message receiver started in port $port")
+//  private val sockets = List[Socket]
 
   // TODO this could be multithreaded but might be too much overload
   /**
@@ -36,7 +37,6 @@ private class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbo
       val oos : ObjectOutputStream = new ObjectOutputStream(clientSocket.getOutputStream)
       val ois: ObjectInputStream = new ObjectInputStream(clientSocket.getInputStream)
       val request: Any = ois.readObject()
-
       // Match the request we just received
       request match {
         // We'll be expecting something like this
@@ -110,7 +110,7 @@ class Dispatcher[T <: Grain](grain: T, private val port: Int)
           pool.execute(mbox)
         }
       })
-      Thread.sleep(1000)
+      Thread.sleep(50)
 
 
     }
