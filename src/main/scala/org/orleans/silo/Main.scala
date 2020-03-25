@@ -1,6 +1,7 @@
 package org.orleans.silo
 
 import ch.qos.logback.classic.Level
+import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.utils.ServerConfig
 
@@ -38,6 +39,8 @@ object Main {
     master.start()
     slave.start()
 
+
+
     // Let main thread sleep for 5 seconds
     Thread.sleep(1000 * 5)
 
@@ -45,8 +48,8 @@ object Main {
     println(slave.getSlaves())
     println(master.getSlaves())
 
-    master.stop()
-    slave.stop()
+//    master.stop()
+//    slave.stop()
   }
 
   /** Very hacky way to set the log level */

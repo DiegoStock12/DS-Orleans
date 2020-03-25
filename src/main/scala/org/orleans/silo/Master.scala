@@ -3,48 +3,25 @@ package org.orleans.silo
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-import org.orleans.silo.Services.Impl.CreateGrainImpl
-import org.orleans.silo.createGrain.CreateGrainGrpc
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Impl.{
-  CreateGrainImpl,
-  GrainSearchImpl,
-  UpdateStateServiceImpl
-}
-import org.orleans.silo.communication.ConnectionProtocol.{
-  Packet,
-  PacketType,
-  SlaveInfo
-}
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
-import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.control.MasterGrain
 import org.orleans.silo.dispatcher.Dispatcher
-import org.orleans.silo.grainSearch.GrainSearchGrpc
-import org.orleans.silo.runtime.Runtime
-import org.orleans.silo.runtime.Runtime.GrainInfo
-import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
-import org.orleans.silo.utils.{
-  GrainDescriptor,
-  GrainState,
-  ServerConfig,
-  SlaveDetails
-}
+import org.orleans.silo.utils.GrainState.GrainState
+import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
-import scala.reflect._
+import scala.reflect.{ClassTag, _}
+
+// Class that will serve as index for the grain map
+case class GrainInfo(slave: String,
+                     address: String,
+                     port: Int,
+                     state: GrainState,
+                     load: Int)
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -87,7 +64,7 @@ class MasterBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag] = {
+  def registerGrain[T <: Grain : ClassTag] = {
     val tag = classTag[T]
 
     if (this.grains.contains(tag)) {
@@ -110,23 +87,21 @@ class MasterBuilder extends LazyLogging {
 }
 
 /**
-  * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
-  * @param masterConfig Server configuration for the master
-  * @param executionContext Execution context for the RPC services
-  */
+ * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
+ *
+ * @param masterConfig     Server configuration for the master
+ * @param executionContext Execution context for the RPC services
+ */
 class Master(masterConfig: ServerConfig,
-             executionContext: ExecutionContext,
+             val executionContext: ExecutionContext,
              registeredGrains: List[ClassTag[_ <: Grain]] = List())
-    extends LazyLogging
+  extends LazyLogging
     with Runnable
     with PacketListener {
 
-  // For now just define it as a gRPC endpoint
-  self =>
-  private[this] var master: Server = null
 
   // Hashmap to save the grain references
-  private val grainMap: ConcurrentHashMap[String, GrainInfo] =
+  val grainMap: ConcurrentHashMap[String, GrainInfo] =
     new ConcurrentHashMap[String, GrainInfo]()
 
   // Metadata for the master.
@@ -144,14 +119,14 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
-  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  var dispatchers: List[Dispatcher[_ <: Grain]] = List()
   private var portsUsed: Set[Int] = Set()
 
   /**
-    * Starts the master.
-    * - Creates a main control loop to keep track of slaves and send heartbeats.
-    * - Creates a packet-manager which handles incoming and outgoing packets.
-    */
+   * Starts the master.
+   * - Creates a main control loop to keep track of slaves and send heartbeats.
+   * - Creates a packet-manager which handles incoming and outgoing packets.
+   */
   def start() = {
     logger.info(f"Now starting master with id: ${protocol.shortUUID(uuid)}.")
     logger.info(f"Master got ${registeredGrains.size} grain(s) registered.")
@@ -172,8 +147,15 @@ class Master(masterConfig: ServerConfig,
   }
 
   def startMainDispatcher() = {
-    //TODO dispatcher here for 'general grain'
-    //use this masterConfig.tcpPort
+    // Start dispatcher for the general grain
+    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort)
+    mainDispatcher.addMasterGrain(this)
+    dispatchers = mainDispatcher :: dispatchers
+
+    // Create the new thread to run the dispatcher and start it
+    val mainDispatcherThread : Thread = new Thread(mainDispatcher)
+    mainDispatcherThread.setName(s"Master-${this.masterConfig.host}-MainDispatcher")
+    mainDispatcherThread.start()
   }
 
   def startGrainDispatchers() = {
@@ -225,11 +207,11 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Send a packet to all slaves (exluding the slaves from the except list).
-    *
-    * @param packet the packet to send.
-    * @param except : the slaves not to send to.
-    */
+   * Send a packet to all slaves (exluding the slaves from the except list).
+   *
+   * @param packet the packet to send.
+   * @param except : the slaves not to send to.
+   */
   def notifyAllSlaves(packet: Packet, except: List[String] = List()): Unit = {
     for ((_, slaveInfo) <- slaves) {
       if (!except.contains(slaveInfo.uuid)) {
@@ -239,8 +221,8 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Verifies if all slaves are still alive, otherwise they get removed from the cluster.
-    */
+   * Verifies if all slaves are still alive, otherwise they get removed from the cluster.
+   */
   def verifySlavesAlive(): Unit = {
     for ((slaveUUID, slaveInfo) <- slaves) {
       val diffTime = System.currentTimeMillis() - slaveInfo.lastHeartbeat
@@ -253,46 +235,46 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Remove slave from cluster.
-    *
-    * @param slaveUUID the uuid to remove.
-    */
+   * Remove slave from cluster.
+   *
+   * @param slaveUUID the uuid to remove.
+   */
   def removeSlave(slaveUUID: String): Unit = {
     logger.debug(s"Remove slave ${protocol.shortUUID(slaveUUID)} from cluster.")
     slaves.remove(slaveUUID) // We remove it from the cluster.
   }
 
   /**
-    * Event-driven method which is triggered when a packet is received.
-    * Forwards the packet to the correct handler.
-    *
-    * @param packet the received packet.
-    * @param host   the host receiving from.
-    * @param port   the port receiving from.
-    */
+   * Event-driven method which is triggered when a packet is received.
+   * Forwards the packet to the correct handler.
+   *
+   * @param packet the received packet.
+   * @param host   the host receiving from.
+   * @param port   the port receiving from.
+   */
   override def onReceive(
-      packet: Packet,
-      host: String,
-      port: Int
-  ): Unit = packet.packetType match {
+                          packet: Packet,
+                          host: String,
+                          port: Int
+                        ): Unit = packet.packetType match {
     case PacketType.HANDSHAKE => processHandshake(packet, host, port)
     case PacketType.HEARTBEAT => processHeartbeat(packet, host, port)
-    case PacketType.SHUTDOWN  => processShutdown(packet, host, port)
-    case PacketType.METRICS   => processLoadData(packet, host, port)
-    case _                    => logger.warn(s"Did not expect this packet: $packet.")
+    case PacketType.SHUTDOWN => processShutdown(packet, host, port)
+    case PacketType.METRICS => processLoadData(packet, host, port)
+    case _ => logger.warn(s"Did not expect this packet: $packet.")
   }
 
   /**
-    * Processes a handshake.
-    * 1) If the slave is already in the cluster, we ignore this packet.
-    * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
-    * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
-    * 4) Send all other slaves there is a new slave in the cluster.
-    *
-    * @param packet The handshake packet.
-    * @param host   The host receiving from.
-    * @param port   The port receiving from.
-    */
+   * Processes a handshake.
+   * 1) If the slave is already in the cluster, we ignore this packet.
+   * 2) Otherwise, add slave to the slaveTable so that it receives heartbeats from the master.
+   * 3) Send the slave a 'welcome' packet so that it acknowledges the master.
+   * 4) Send all other slaves there is a new slave in the cluster.
+   *
+   * @param packet The handshake packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processHandshake(packet: Packet, host: String, port: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
     if (slaves.contains(packet.uuid)) return
@@ -309,9 +291,9 @@ class Master(masterConfig: ServerConfig,
 
     // And send all other slaves in the cluster there is a new slave.
     val new_slave = Packet(PacketType.SLAVE_CONNECT,
-                           slaveInfo.uuid,
-                           System.currentTimeMillis(),
-                           List(slaveInfo.host, slaveInfo.port.toString))
+      slaveInfo.uuid,
+      System.currentTimeMillis(),
+      List(slaveInfo.host, slaveInfo.port.toString))
     notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
 
     // Finally send this slave awareness of all other slaves.
@@ -331,16 +313,16 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Processes a heartbeat.
-    * 1). If the slave is unknown, we ignore this packet.
-    *   - It might be that it got rid of this slave because it thought the slave was dead.
-    * After some time, the slave will also consider the master dead and tries to reconnect.
-    * 2) Slave information gets updated with the latest heartbeat, so that we know its alive.
-    *
-    * @param packet The heartbeat packet.
-    * @param host   The host receiving from.
-    * @param port   The port receiving from.
-    */
+   * Processes a heartbeat.
+   * 1). If the slave is unknown, we ignore this packet.
+   *   - It might be that it got rid of this slave because it thought the slave was dead.
+   * After some time, the slave will also consider the master dead and tries to reconnect.
+   * 2) Slave information gets updated with the latest heartbeat, so that we know its alive.
+   *
+   * @param packet The heartbeat packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processHeartbeat(packet: Packet, host: String, port: Int): Unit = {
     if (!slaves.contains(packet.uuid)) {
       logger.debug(
@@ -357,11 +339,12 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Processes load on the grains data.
-    * @param packet Packet with load metrics
-    * @param host The host receiving from.
-    * @param port The port receiving from.
-    */
+   * Processes load on the grains data.
+   *
+   * @param packet Packet with load metrics
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
     logger.warn(s"Processing load data: ${packet.data}")
     packet.data.foreach { d =>
@@ -370,12 +353,9 @@ class Master(masterConfig: ServerConfig,
           if (this.grainMap.containsKey(id)) {
             val grainInfo: GrainInfo = this.grainMap.get(id)
             if (grainInfo.load != load.toInt) {
-              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.port,
-                                                      grainInfo.state,
-                                                      grainInfo.grain,
-                                                      grainInfo.grainType,
-                                                      grainInfo.grainPackage,
-                                                      load.toInt)
+              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.slave, grainInfo.address, grainInfo.port,
+                grainInfo.state,
+                load.toInt)
               this.grainMap.replace(id, newGrainInfo)
             }
           } else {
@@ -390,22 +370,22 @@ class Master(masterConfig: ServerConfig,
   }
 
   /**
-    * Processes a shutdown of a slave.
-    * 1) Remove the slave from its own table.
-    * 2) Make other slaves aware this slave is removed.
-    *
-    * @param packet The shutdown packet.
-    * @param host   The host receiving from.
-    * @param port   The port receiving from.
-    */
+   * Processes a shutdown of a slave.
+   * 1) Remove the slave from its own table.
+   * 2) Make other slaves aware this slave is removed.
+   *
+   * @param packet The shutdown packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Remove the slave.
     removeSlave(packet.uuid)
 
     // Notify all others the slave has been removed.
     val disconnect = Packet(PacketType.SLAVE_DISCONNECT,
-                            packet.uuid,
-                            System.currentTimeMillis())
+      packet.uuid,
+      System.currentTimeMillis())
     notifyAllSlaves(disconnect)
   }
 
@@ -413,9 +393,9 @@ class Master(masterConfig: ServerConfig,
   def getSlaves(): List[SlaveInfo] = slaves.toList.map(_._2)
 
   /**
-    * Stopping the master.
-    * Returns if it isn't running.
-    */
+   * Stopping the master.
+   * Returns if it isn't running.
+   */
   def stop(): Unit = {
     if (!running) return
     logger.info(f"Now stopping master with id: ${protocol.shortUUID(uuid)}.")

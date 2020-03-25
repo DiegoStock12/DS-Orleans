@@ -3,14 +3,9 @@ package org.orleans.silo.Test
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.dispatcher.Sender
-import org.orleans.silo.hello.{HelloReply, HelloRequest}
 
 class GreeterGrain(_id: String) extends Grain(_id)
   with LazyLogging {
-
-  // Specify the type of requests and replies
-  type Request = HelloRequest
-  type Reply = HelloReply
 
   logger.info("Greeter implementation running")
 

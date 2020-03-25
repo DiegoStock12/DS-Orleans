@@ -2,42 +2,40 @@ package org.orleans.silo.dispatcher
 
 import java.io.{ObjectInputStream, ObjectOutputStream}
 import java.net.{ServerSocket, Socket, SocketException}
-import java.util.concurrent.{
-  ConcurrentHashMap,
-  ConcurrentMap,
-  Executors,
-  ThreadPoolExecutor
-}
+import java.util.UUID
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap, Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 
 import scala.reflect._
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
+
 
 // TODO how to deal with replicated grains that could have the same ID?
 // TODO maybe different mailboxes or a threadpool that distributes the mailbox between the two grains??
 /**
-  * This thread just takes the messages and puts them in the appropriate mailbox.
-  * It gets a message and associates it with the mailbox of that grain
-  */
+ * This thread just takes the messages and puts them in the appropriate mailbox.
+ * It gets a message and associates it with the mailbox of that grain
+ */
 private class MessageReceiver(
-    val mailboxIndex: ConcurrentHashMap[String, Mailbox],
-    port: Int)
-    extends Runnable
+                               val mailboxIndex: ConcurrentHashMap[String, Mailbox],
+                               port: Int)
+  extends Runnable
     with LazyLogging {
 
   // Create the socket
   val requestSocket: ServerSocket = new ServerSocket(port)
   logger.info(s"Message receiver started in port $port")
-//  private val sockets = List[Socket]
+  //  private val sockets = List[Socket]
 
   val SLEEP_TIME: Int = 50
   var running: Boolean = true
 
   // TODO this could be multithreaded but might be too much overload
   /**
-    * While true receive messages and put them in the appropriate mailbox
-    */
+   * While true receive messages and put them in the appropriate mailbox
+   */
   override def run(): Unit = {
     while (running) {
       // Wait for request
@@ -94,23 +92,26 @@ private class MessageReceiver(
 }
 
 /**
-  * Dispatcher that will hold the messages for a certain type of grain
-  *
-  * @param grain grain to start the dispatcher with
-  * @tparam T type of the grain that the dispatcher will serve
-  */
-class Dispatcher[T <: Grain: ClassTag](private val port: Int)
+ * Dispatcher that will hold the messages for a certain type of grain
+ *
+ * @param port port in which the dispatcher will be waiting for requests
+ * @tparam T type of the grain that the dispatcher will serve
+ */
+class Dispatcher[T <: Grain : ClassTag](val port: Int)
     extends Runnable
     with LazyLogging {
-  type GrainType = T
+
 
   val SLEEP_TIME: Int = 50
+  private val THREAD_POOL_DEFAULT_SIZE : Int = 8
+
   var running: Boolean = true
 
   // Thread pool to execute new request
-  // TODO this pool could vary in size so it scales better
+  // The thread pool has a variable size that will scale with the number of requests to
+  // make it perform better under load while also being efficient in lack of load
   private val pool: ThreadPoolExecutor =
-    Executors.newFixedThreadPool(10).asInstanceOf[ThreadPoolExecutor]
+    Executors.newFixedThreadPool(THREAD_POOL_DEFAULT_SIZE).asInstanceOf[ThreadPoolExecutor]
 
   // Maps of Mailbox and grains linking them to an ID
   private[dispatcher] val mailboxIndex: ConcurrentHashMap[String, Mailbox] =
@@ -127,6 +128,88 @@ class Dispatcher[T <: Grain: ClassTag](private val port: Int)
 
   logger.info(
     s"Dispatcher for ${classTag[T].runtimeClass.getName} started in port $port")
+
+  /**
+   * Creates a new grain and returns its id so it can be referenced
+   * by the user and indexed by the master
+   */
+  def addGrain(): String = {
+    // Create the id for the new grain
+    val id: String = UUID.randomUUID().toString
+    // Create a new grain of that type with the new ID
+    val grain : T = classTag[T].runtimeClass
+      .getConstructor(classOf[String])
+      .newInstance(id)
+      .asInstanceOf[T]
+    // Create a mailbox
+    val mbox: Mailbox = new Mailbox(grain)
+
+    // Put the new grain and mailbox in the indexes so it can be found
+    this.grainMap.put(mbox, grain)
+    this.messageReceiver.mailboxIndex.put(id, mbox)
+
+    // Return the id of the grain
+    id
+  }
+
+  /**
+   * Adds a master grain implementation, that will manage the requests for
+   * create, delete or search for grains
+   * @return
+   */
+  def addMasterGrain(master: Master) : String = {
+    // Create the id for the new grain
+    val id: String = master.uuid
+    // Create a new grain of that type with the new ID
+    val grain : T = classTag[T].runtimeClass
+      .getConstructor(classOf[String], classOf[Master])
+      .newInstance(id, master)
+      .asInstanceOf[T]
+    // Create a mailbox
+    val mbox: Mailbox = new Mailbox(grain)
+
+    // Put the new grain and mailbox in the indexes so it can be found
+    this.grainMap.put(mbox, grain)
+    this.messageReceiver.mailboxIndex.put(id, mbox)
+
+    logger.info(s"Created master grain with id $id")
+    // Return the id of the grain
+    id
+  }
+
+  /**
+   * Adds the slave grain
+   */
+  def addSlaveGrain(slave: Slave) : String = {
+    // Use the same id as the slave
+    val id = slave.uuid
+    // Create the grain that will manage the slave of that type with the new ID
+    val grain : T = classTag[T].runtimeClass.getConstructor(classOf[String], classOf[Slave])
+      .newInstance(id, slave).asInstanceOf[T]
+    // Create a mailbox
+    val mbox: Mailbox = new Mailbox(grain)
+
+    // Put the new grain and mailbox in the indexes so it can be found
+    this.grainMap.put(mbox, grain)
+    this.messageReceiver.mailboxIndex.put(id, mbox)
+
+    // Return the id of the grain
+    logger.info(s"Created slave grain with id $id")
+    id
+  }
+
+  /**
+   * Delete a grain and its mailbox
+   *
+   * @param id
+   */
+  // TODO we should be careful cause maybe the mailbox is running
+  def deleteGrain(id: String) = {
+    // delete from index and delete mailbox
+    logger.info(s"Deleting information for grain $id")
+    this.messageReceiver.mailboxIndex.remove(this.grainMap.get(id))
+    this.grainMap.remove(id)
+  }
 
   override def run(): Unit = {
     while (running) {

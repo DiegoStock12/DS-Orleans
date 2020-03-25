@@ -3,22 +3,13 @@ package org.orleans.silo
 import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Impl.{ActivateGrainImpl, CreateGrainImpl}
-import org.orleans.silo.Test.GreeterGrain
-import org.orleans.silo.activateGrain.ActivateGrainServiceGrpc
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
-import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.control.SlaveGrain
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.RegistryFactory
-import org.orleans.silo.runtime.Runtime
-import org.orleans.silo.utils.{GrainDescriptor, ServerConfig}
+import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -111,17 +102,18 @@ class SlaveBuilder extends LazyLogging {
   * @param masterConfig Config of the master server
   * @param executionContext Execution context for the RPC services
   */
-class Slave(slaveConfig: ServerConfig,
+class Slave(val slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext,
-            registeredGrains: List[ClassTag[_ <: Grain]] = List())
+            val registeredGrains: List[ClassTag[_ <: Grain]] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
 
-  // Hashmap to save the grain references
-  private val grainMap: mutable.HashMap[String, GrainDescriptor] =
-    mutable.HashMap[String, GrainDescriptor]()
+  // Hashmap that identifies each grainID with its type so
+  // we can check which dispatcher is in charge of that ID
+  val grainMap: mutable.HashMap[String,  ClassTag[_ <: Grain]] =
+    mutable.HashMap[String, ClassTag[_ <: Grain]]()
 
   // Metadata for the slave.
   val uuid: String = UUID.randomUUID().toString
@@ -145,7 +137,7 @@ class Slave(slaveConfig: ServerConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
-  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  var dispatchers: List[Dispatcher[_ <: Grain]] = List()
   private var portsUsed: Set[Int] = Set()
 
   /**
@@ -172,8 +164,16 @@ class Slave(slaveConfig: ServerConfig,
   }
 
   def startMainDispatcher() = {
-    //TODO dispatcher here for 'general grain'
-    //use this serverConfig.tcpPort
+    // Start dispatcher for the general grain
+    val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort)
+    val slaveGrainID = mainDispatcher.addSlaveGrain(this)
+    grainMap.put(slaveGrainID,classTag[SlaveGrain])
+    dispatchers = mainDispatcher :: dispatchers
+
+    // Create the new thread to run the dispatcher and start it
+    val mainDispatcherThread : Thread = new Thread(mainDispatcher)
+    mainDispatcherThread.setName(s"Slave-${this.slaveConfig.host}-MainDispatcher")
+    mainDispatcherThread.start()
   }
 
   def startGrainDispatchers() = {
@@ -192,7 +192,7 @@ class Slave(slaveConfig: ServerConfig,
 
     val port = portsLeft.toList(0)
     portsUsed = Set(port).union(portsUsed)
-    return port
+    port
   }
 
   /** Control loop. */

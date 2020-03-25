@@ -42,8 +42,7 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
   val id: String = grain._id
 
   // length of the message queue for that actor
-  @volatile
-  var length : Int = inbox.size()
+  def length : Int = inbox.size()
 
   /**
    * Adds a new message to the inbox
@@ -80,7 +79,7 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
       logger.info(s"Increasing the counter for messages processed for grain: ${id}")
       val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
       registry.addRequestHandled()
-      msg.sender.stream.close()
+      //msg.sender.stream.close()
     }
     this.isRunning = false
   }
