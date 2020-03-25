@@ -179,7 +179,13 @@ class Slave(val slaveConfig: ServerConfig,
 
   def startGrainDispatchers() = {
     registeredGrains.foreach { x =>
-      dispatchers = new Dispatcher(getFreePort)(x) :: dispatchers
+      // Create a new dispatcher and run it in a new thread
+      val d = new Dispatcher(getFreePort)(x)
+      val dThread : Thread = new Thread(d)
+      dThread.setName(s"Dispatcher-${d.port}-${x.runtimeClass.getName}")
+      dThread.start()
+
+      dispatchers = d :: dispatchers
     }
   }
 

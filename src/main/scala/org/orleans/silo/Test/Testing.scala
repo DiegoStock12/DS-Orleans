@@ -1,7 +1,7 @@
 package org.orleans.silo.Test
 
 import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest}
+import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
@@ -33,11 +33,24 @@ object Testing {
     println(s"ID of the grain is $id")
     println("Searching for the grain")
 
+    var port : Int = 0
+
     // Search for a grain
     g ? SearchGrainRequest(id) onComplete {
-      case Success(value) => println(value)
+      case Success(value: SearchGrainResponse) =>
+        println(value)
+        port = value.port
       case Failure(exception) => exception.printStackTrace()
     }
+    Thread.sleep(1000)
+
+    println("Sending hello to the greeter grain")
+    val g2 : GrainRef = GrainRef(id, "localhost", port)
+    g2 ? "hello" onComplete{
+      case Success(value) => println(value)
+      case _ => "Not working"
+    }
+
     Thread.sleep(1000)
 
 
