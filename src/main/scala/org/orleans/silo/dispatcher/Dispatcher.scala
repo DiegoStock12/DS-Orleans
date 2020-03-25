@@ -26,7 +26,7 @@ private class MessageReceiver(
 
   // Create the socket
   val requestSocket: ServerSocket = new ServerSocket(port)
-  logger.info(s"Message receiver started in port $port")
+
   //  private val sockets = List[Socket]
 
   val SLEEP_TIME: Int = 50
@@ -39,6 +39,7 @@ private class MessageReceiver(
   override def run(): Unit = {
     while (running) {
       // Wait for request
+      logger.info(s"Message receiver started in port $port")
       var clientSocket: Socket = null
 
       try {
@@ -48,8 +49,8 @@ private class MessageReceiver(
           return //socket is probably closed, we can exit this method.
       }
 
-      logger.info(
-        s"Accepted new client! ${clientSocket.getInetAddress}: ${clientSocket.getPort}")
+//      logger.info(
+//        s"Accepted new client! ${clientSocket.getInetAddress}: ${clientSocket.getPort}")
       // Important to create the oos if not the ois on the other side of the connection blocks until it is
       val oos: ObjectOutputStream = new ObjectOutputStream(
         clientSocket.getOutputStream)
@@ -61,20 +62,19 @@ private class MessageReceiver(
         // We'll be expecting something like this
         case ((id: String, msg: Any)) =>
           logger.info(
-            s"Received message from ${clientSocket.getInetAddress}:${clientSocket.getPort}")
+            s"Received message from ${clientSocket.getInetAddress}: ${clientSocket.getPort}")
           logger.info(s"Message = ($id,$msg)")
           if (this.mailboxIndex.containsKey(id)) {
             // Add a message to the queue
-            logger.info(s"Adding to queue $id message $msg")
             this.mailboxIndex.get(id).addMessage(Message(id, msg, Sender(oos)))
             logger.info(
               s"Increasing the counter for messages received for grain: ${id}")
             val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
             registry.addRequestReceived()
-            logger.info(
-              s"New size of the queue: ${this.mailboxIndex.get(id).inbox.size()}")
           } else {
             logger.error(s"Not existing mailbox for ID $id")
+            this.mailboxIndex.forEach((k ,v) => logger.info(s"$k --> $v"))
+
           }
         case _ =>
           logger.error(s"Received invalid message $request")
@@ -141,8 +141,10 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
       .getConstructor(classOf[String])
       .newInstance(id)
       .asInstanceOf[T]
+    logger.info(s"New grain id $id")
     // Create a mailbox
     val mbox: Mailbox = new Mailbox(grain)
+    logger.info(s"New mailbox id $id")
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
@@ -159,7 +161,7 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
    */
   def addMasterGrain(master: Master) : String = {
     // Create the id for the new grain
-    val id: String = master.uuid
+    val id: String = "master"
     // Create a new grain of that type with the new ID
     val grain : T = classTag[T].runtimeClass
       .getConstructor(classOf[String], classOf[Master])
@@ -207,8 +209,8 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
   def deleteGrain(id: String) = {
     // delete from index and delete mailbox
     logger.info(s"Deleting information for grain $id")
-    this.messageReceiver.mailboxIndex.remove(this.grainMap.get(id))
-    this.grainMap.remove(id)
+    this.grainMap.remove(this.messageReceiver.mailboxIndex.get(id))
+    this.messageReceiver.mailboxIndex.remove(id)
   }
 
   override def run(): Unit = {
@@ -220,7 +222,7 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
         if (!mbox.isEmpty && !mbox.isRunning) {
           // if the mailbox is not empty schedule the mailbox
           // Executing the mailbox basically delivers all the messages
-          logger.info(s"Running mailbox ${mbox.id}")
+          //logger.info(s"Running mailbox ${mbox.id}")
           pool.execute(mbox)
         }
       })

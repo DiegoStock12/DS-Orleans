@@ -78,6 +78,7 @@ class MasterGrain(_id: String, master: Master)
         logger.info(s"Received response from the server! $resp")
         val grainInfo = GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
         master.grainMap.put(resp.id, grainInfo)
+
         // Answer to the user
         sender ! resp
 
@@ -98,7 +99,7 @@ class MasterGrain(_id: String, master: Master)
     if (master.grainMap.containsKey(id)) {
       val grainInfo: GrainInfo = master.grainMap.get(id)
       // Send deletion request
-      val slaveRef: GrainRef = GrainRef(grainInfo.slave, grainInfo.address, grainInfo.port)
+      val slaveRef: GrainRef = GrainRef(grainInfo.slave, grainInfo.address, 1600)
 
       // Send request to the slave
       slaveRef ! request

@@ -1,10 +1,10 @@
 package org.orleans.silo.Test
 
 import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.control.CreateGrainRequest
+import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Success
+import scala.util.{Failure, Success}
 import scala.reflect._
 
 object Testing {
@@ -12,36 +12,58 @@ object Testing {
   def main(args: Array[String]): Unit = {
     println("Trying to get the socket")
 
-    // Get the grain reference
-    val g = GrainRef("892c7fff-4140-4cc0-98e8-8d60851c3a02", "localhost", 1400)
+    var id: String = ""
+
+    // The master grain in the master has ID "master" so it's easy to find!
+    val g = GrainRef("master", "localhost", 1400)
     println("Sending request")
     val tag = classTag[GreeterGrain]
     println(tag)
-    g ? CreateGrainRequest(tag) onComplete{
-      case Success(value) => println(value)
+
+    // Try to create a grain
+    println("Creating the grain!")
+    g ? CreateGrainRequest(tag) onComplete {
+      case Success(value: CreateGrainResponse) =>
+        println(value)
+        id = value.id
       case _ => println("not working")
     }
 
-    Thread.sleep(5000)
+    Thread.sleep(1000)
+    println(s"ID of the grain is $id")
+    println("Searching for the grain")
+
+    // Search for a grain
+    g ? SearchGrainRequest(id) onComplete {
+      case Success(value) => println(value)
+      case Failure(exception) => exception.printStackTrace()
+    }
+    Thread.sleep(1000)
+
+
+    // Delete that grain
+    println("Trying to delete grain")
+    // Try to delete the grain
+    g ! DeleteGrainRequest(id)
 
 
 
     // Send a message to the grain
     // Synchronous request
-//    println("Sending hello message to grain 1234")
-//    time {
-//      g ! "hello"
-//      g ! "hello"
-//    }
-//
-//
-//    // Asynchronous request
-//    time {
-//      g ? 2 onComplete ({
-//        case Success(value) => println(value)
-//        case _ => println("not working")
-//      })
-//    }
+    //    println("Sending hello message to grain 1234")
+    //    time {
+    //      g ! "hello"
+    //      g ! "hello"
+    //    }
+    //
+    //
+    //    // Asynchronous request
+    //    time {
+    //      g ? 2 onComplete ({
+    //        case Success(value) => println(value)
+    //        case _ => println("not working")
+    //      })
+    //    }
 
     Thread.sleep(1500)
   }

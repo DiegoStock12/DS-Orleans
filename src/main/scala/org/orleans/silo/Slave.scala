@@ -1,6 +1,7 @@
 package org.orleans.silo
 
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
@@ -112,8 +113,8 @@ class Slave(val slaveConfig: ServerConfig,
 
   // Hashmap that identifies each grainID with its type so
   // we can check which dispatcher is in charge of that ID
-  val grainMap: mutable.HashMap[String,  ClassTag[_ <: Grain]] =
-    mutable.HashMap[String, ClassTag[_ <: Grain]]()
+  val grainMap: ConcurrentHashMap[String,  ClassTag[_ <: Grain]] =
+    new ConcurrentHashMap[String, ClassTag[_ <: Grain]]()
 
   // Metadata for the slave.
   val uuid: String = UUID.randomUUID().toString
@@ -167,7 +168,7 @@ class Slave(val slaveConfig: ServerConfig,
     // Start dispatcher for the general grain
     val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort)
     val slaveGrainID = mainDispatcher.addSlaveGrain(this)
-    grainMap.put(slaveGrainID,classTag[SlaveGrain])
+    //grainMap.put(slaveGrainID,classTag[SlaveGrain])
     dispatchers = mainDispatcher :: dispatchers
 
     // Create the new thread to run the dispatcher and start it

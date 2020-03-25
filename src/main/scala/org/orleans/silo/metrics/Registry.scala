@@ -4,7 +4,9 @@ package org.orleans.silo.metrics
  * Registry for collecting information about requests toi grain.
  */
 class Registry() {
+  @volatile
   var requestsReceived: Int = 0
+  @volatile
   var requestsHandled: Int = 0
 
   /**

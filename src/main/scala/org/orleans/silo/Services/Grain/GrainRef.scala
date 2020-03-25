@@ -65,7 +65,6 @@ class GrainRef private(val id: String, val address: String, val port : Int) exte
     outStream = new ObjectOutputStream(s.getOutputStream)
     inStream = new ObjectInputStream(s.getInputStream)
     outStream.writeObject((id, msg))
-//    outStream.writeObject((id, msg))
     Future {
       val resp: Any = inStream.readObject()
       resp

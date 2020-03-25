@@ -6,6 +6,7 @@ import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
 
 import scala.reflect.ClassTag
+import scala.reflect._
 
 
 /**
@@ -37,9 +38,11 @@ class SlaveGrain(_id: String, slave: Slave)
 
     // Process deletion requests
     case (request: DeleteGrainRequest, _) =>
-      slave.grainMap.get(request.id) match {
-        case Some(value)=> processGrainDeletion(request)(value)
-        case None => logger.error("ID doesn't exist in the database")
+      if (slave.grainMap.containsKey(request.id)){
+        processGrainDeletion(request)(slave.grainMap.get(request.id))
+      } else{
+        logger.error("ID doesn't exist in the database")
+        slave.grainMap.forEach((k ,v) => logger.info(s"$k, $v"))
       }
 
     case other =>
@@ -65,6 +68,11 @@ class SlaveGrain(_id: String, slave: Slave)
 
       // Get the ID for the newly created grain
       val id = dispatcher.addGrain()
+
+      // Add it to the grainMap
+      logger.info(s"Adding to the slave grainmap id $id")
+      slave.grainMap.put(id, classTag[T])
+
       sender ! CreateGrainResponse(id, slave.slaveConfig.host, dispatcher.port)
 
       // If there's not a dispatcher for that grain type
@@ -72,8 +80,20 @@ class SlaveGrain(_id: String, slave: Slave)
     } else {
       logger.info("Creating new dispatcher for class")
       // Create a new dispatcher for that and return its properties
-      val dispatcher: Dispatcher[_ <: Grain] = new Dispatcher[T](slave.getFreePort)
+      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
+      // Add the dispatchers to the dispatcher
+      slave.dispatchers = dispatcher :: slave.dispatchers
       val id: String = dispatcher.addGrain()
+
+      // Create and run the dispatcher Thread
+      val newDispatcherThread : Thread = new Thread(dispatcher)
+      newDispatcherThread.setName(s"Dispatcher-${slave.shortId}-${classTag[T].runtimeClass.getName}")
+      newDispatcherThread.start()
+
+      // Add it to the grainMap
+      logger.info(s"Adding to the slave grainmap id $id")
+      slave.grainMap.put(id, classTag[T])
+
       // Return the newly created information
       sender ! CreateGrainResponse(id, slave.slaveConfig.host, dispatcher.port)
     }
@@ -89,10 +109,13 @@ class SlaveGrain(_id: String, slave: Slave)
   def processGrainDeletion[T <: Grain : ClassTag](request: DeleteGrainRequest): Unit = {
     // Grain id to delete
     val id = request.id
+    logger.info(s"Trying to delete grain with id $id")
     // Get the appropriate dispatcher
     val dispatcher: Dispatcher[T] = slave.dispatchers.filter {
       _.isInstanceOf[Dispatcher[T]]
     }.head.asInstanceOf[Dispatcher[T]]
+
+    println(s"$dispatcher - ${dispatcher.port}")
 
     // Delete the grain
     dispatcher.deleteGrain(id)
