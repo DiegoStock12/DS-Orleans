@@ -3,6 +3,8 @@ package org.orleans.silo.Test
 import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import scala.reflect.runtime.universe._
@@ -24,14 +26,17 @@ object Testing {
 
     // Try to create a grain
     println("Creating the grain!")
-    g ? CreateGrainRequest(classtag, typetag) onComplete {
+    val result = g ? CreateGrainRequest(classtag, typetag)
+    result.map {
       case Success(value: CreateGrainResponse) =>
+        println("Received CreateGrainResponse!")
         println(value)
         id = value.id
       case _ => println("not working")
     }
-
-    Thread.sleep(1000)
+    Await.result(result, 5 seconds)
+//    println(result.value)
+//    Thread.sleep(10)
     println(s"ID of the grain is $id")
     println("Searching for the grain")
 
