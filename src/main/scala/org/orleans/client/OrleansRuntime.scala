@@ -1,10 +1,18 @@
 package main.scala.org.orleans.client
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.{Grain, GrainRef}
+import org.orleans.silo.control.{
+  CreateGrainRequest,
+  CreateGrainResponse,
+  SearchGrainRequest,
+  SearchGrainResponse
+}
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.{ClassTag, classTag}
+import scala.util.{Failure, Success}
 
 object OrleansRuntime {
   def apply(): OrleansRuntimeBuilder = new OrleansRuntimeBuilder()
@@ -48,14 +56,28 @@ class OrleansRuntime(private val host: String,
                      private val registeredGrains: List[ClassTag[_ <: Grain]] =
                        List()) {
 
-  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] = {
-    //TODO So here the master is request to create a grain, which will return a grainref which can be used to manipulate it.
+  val MASTER_ID: String = "master"
+  val master: GrainRef = GrainRef(MASTER_ID, host, port)
 
-    null
+  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] = {
+    val tag = classTag[G]
+    (master ? CreateGrainRequest(tag)).flatMap {
+      case value: CreateGrainResponse =>
+        Future.successful(GrainRef(value.id, value.address, value.port))
+      case _ =>
+        Future.failed[GrainRef](
+          new RuntimeException("Creating a grain failed."))
+    }
   }
   def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] = {
-    //TODO So here the master is asked to find a grain (either in memory) or persistent storage.
-    null
+    val tag = classTag[G]
+    (master ? SearchGrainRequest(id)).flatMap {
+      case value: SearchGrainResponse =>
+        Future.successful(GrainRef(id, value.address, value.port))
+      case _ =>
+        Future.failed[GrainRef](
+          new RuntimeException(s"Search grain ${id} failed."))
+    }
   }
 
   def getHost() = host
