@@ -61,30 +61,6 @@ class MasterGrain(_id: String, master: Master)
         val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
         val slaveRef = GrainRef(info.uuid, info.host, 1600)
 
-        val tag: ClassTag[_ <: Grain] = request.grainClass
-        val activateRequest: ActivateGrainRequest = ActivateGrainRequest(id, tag)
-
-        val f: Future[Any] = slaveRef ? activateRequest
-        // Await result
-        Await.result(f, 5 seconds)
-        f onComplete {
-          case Success(resp: ActivateGrainResponse) =>
-            // Create the grain info and put it in the grainMap
-            logger.info(s"Received response from the server! $resp")
-            val grainInfo = GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
-            if (master.grainMap.containsKey(resp.id)) {
-              val currentGrains: List[GrainInfo] = master.grainMap.get(resp.id)
-              master.grainMap.replace(resp.id, grainInfo :: currentGrains)
-            } else {
-              master.grainMap.put(resp.id, List(grainInfo))
-            }
-            // Answer to the user
-            sender ! resp
-
-          case Failure(exception) => logger.error(s"Exeception occurred while processing create grain" +
-            s" ${exception.printStackTrace()}")
-        }
-
       }
     }
     else {

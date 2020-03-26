@@ -1,20 +1,14 @@
 package org.orleans.silo.control
 
-import com.sun.tools.javac.code.TypeTag
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
-import org.orleans.silo.storage.DatabaseConnectionExample.logger
-import org.orleans.silo.storage.MongoDatabase
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Await
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.reflect._
-import scala.util.{Failure, Success}
 
 
 /**
@@ -25,7 +19,7 @@ import scala.util.{Failure, Success}
  *
  */
 class SlaveGrain(_id: String, slave: Slave)
-    extends Grain(_id)
+  extends Grain(_id)
     with LazyLogging {
 
   logger.info("SLAVE GRAIN RUNNING!")
@@ -44,10 +38,6 @@ class SlaveGrain(_id: String, slave: Slave)
       logger.info(s"Slave grain processing grain creation request with classtag: ${request.grainClass} and typetag:  ${request.grainType}")
       logger.info("")
       processGrainCreation(request, sender)(request.grainClass, request.grainType)
-
-    case (request: ActivateGrainRequest, sender: Sender) =>
-      logger.info("Slave grain processing grain activation request")
-      processGrainActivation(request, sender)(request.grainClass)
 
     // Process deletion requests
     case (request: DeleteGrainRequest, _) =>
@@ -74,7 +64,7 @@ class SlaveGrain(_id: String, slave: Slave)
   def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[T], sender: Sender) = {
     logger.info(s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
 
-  // If there exists a dispatcher for that grain just add it
+    // If there exists a dispatcher for that grain just add it
     if (slave.registeredGrains.contains(Tuple2(request.grainClass, request.grainType))) {
       logger.info(s"Found existing dispatcher for class")
 
@@ -118,28 +108,6 @@ class SlaveGrain(_id: String, slave: Slave)
       sender ! CreateGrainResponse(id, slave.slaveConfig.host, dispatcher.port)
     }
 
-  }
-
-  /**
-   * Manage the activation of existing grain
-   *
-   * @param request
-   */
-  def processGrainActivation[T <: Grain : ClassTag](request: ActivateGrainRequest, sender: Sender): Unit = {
-    logger.info("Activating the grain")
-
-    if (slave.registeredGrains.contains(request.grainClass)) {
-      logger.info(s"Found existing dispatcher for activating class")
-
-      val dispatcher: Dispatcher[T] = slave.dispatchers.filter {
-        _.isInstanceOf[Dispatcher[T]]
-      }.head.asInstanceOf[Dispatcher[T]]
-
-      dispatcher.addActivation(request.id, request.grainClass)
-    } else {
-      val dispatcher: Dispatcher[_ <: Grain] = new Dispatcher[T](slave.getFreePort)
-      dispatcher.addActivation(request.id, request.grainClass)
-    }
   }
 
   /**

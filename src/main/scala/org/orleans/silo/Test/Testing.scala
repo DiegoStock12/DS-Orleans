@@ -19,6 +19,9 @@ object Testing {
 
     // The master grain in the master has ID "master" so it's easy to find!
     val g = GrainRef("master", "localhost", 1400)
+    // Get the grain reference
+//    val g = GrainRef("b01ed5f3-96eb-45ea-8eea-53e383e8c2f6", "localhost", 1400)
+//    val g = GrainRef("1234", "localhost", 1400)
     println("Sending request")
     val classtag = classTag[GreeterGrain]
     val typetag = typeTag[GreeterGrain]
@@ -42,7 +45,7 @@ object Testing {
     var port : Int = 0
 
     // Search for a grain
-    g ? SearchGrainRequest(id) onComplete {
+    g ? SearchGrainRequest(id, classtag) onComplete {
       case Success(value: SearchGrainResponse) =>
         println(value)
         port = value.port
@@ -85,7 +88,7 @@ object Testing {
     //      })
     //    }
 
-    Thread.sleep(1500)
+//    Thread.sleep(1500)
   }
 
   def time[R](block: => R): R = {

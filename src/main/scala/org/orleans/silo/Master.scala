@@ -163,12 +163,8 @@ class Master(masterConfig: ServerConfig,
 
     // Create the new thread to run the dispatcher and start it
     val mainDispatcherThread: Thread = new Thread(mainDispatcher)
-<<<<<<< HEAD
     mainDispatcherThread.setName(
       s"Master-${this.masterConfig.host}-MainDispatcher")
-=======
-    mainDispatcherThread.setName(s"Master-${this.masterConfig.host}-MainDispatcher")
->>>>>>> Measure total load of the slave
     mainDispatcherThread.start()
   }
 

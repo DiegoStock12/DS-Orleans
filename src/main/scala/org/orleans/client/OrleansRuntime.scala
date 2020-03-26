@@ -68,7 +68,7 @@ class OrleansRuntime(private val host: String,
   }
   def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] = {
     val tag = classTag[G]
-    (master ? SearchGrainRequest(id)).flatMap {
+    (master ? SearchGrainRequest(id, tag)).flatMap {
       case value: SearchGrainResponse =>
         Future.successful(GrainRef(id, value.address, value.port))
       case _ =>

@@ -22,7 +22,8 @@ object ConnectionProtocol {
   case class SlaveInfo(uuid: String,
                        host: String,
                        port: Int,
-                       lastHeartbeat: Long = -1)
+                       lastHeartbeat: Long = -1,
+                       var totalLoad: Int = 0)
 
   // The interval for which heart beats are sent.
   val heartbeatInterval: Long = 1000
