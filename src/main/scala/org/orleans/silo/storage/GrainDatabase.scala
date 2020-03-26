@@ -26,4 +26,6 @@ trait GrainDatabase {
   def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T]
   def delete[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T]
 
+  def get[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Option[T]
+
 }

@@ -7,10 +7,11 @@ import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Grain.Grain.Receive
+import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._
@@ -98,6 +99,36 @@ class MongoGrainDatabase(databaseName: String) extends GrainDatabase with LazyLo
       case Failure(e) =>
         logger.error("Something went wrong when deleting the grain.")
         Failure(e)
+    }
+  }
+
+  /**
+    *
+    * @param id
+    * @tparam T
+    * @return
+    */
+  override def get[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Option[T] = {
+    val observable: SingleObservable[Document] = grainCollection.find(equal("_id", id)).first()
+
+    val result: Future[Option[T]] = observable.toFuture().transform {
+      case Success(document) =>
+        if (document == null) {
+          logger.debug(s"Document with id: $id was not found")
+          Success(None)
+        } else {
+          logger.debug(s"Succesfully found grain: ${document.toJson()}")
+          Success(Some(GrainSerializer.deserialize[T](document.toJson())))
+        }
+
+      case Failure(e) =>
+        logger.error(s"Couldn't get grain because of exception: $e")
+        Failure(e)
+    }
+
+    Await.result(result, 5 seconds) match {
+      case Some(grain: T) => Some(grain)
+      case _ => None
     }
   }
 

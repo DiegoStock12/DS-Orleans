@@ -41,7 +41,7 @@ object DatabaseConnectionTest extends LazyLogging {
 
     Await.ready(storeResult, 10 seconds)
 
-    val result = mongo.load[TestGrain]("1012")
+    val result = mongo.load[TestGrain]("1013")
     result.onComplete {
       case Success(value) =>
         logger.debug(s"Succesfully retrieved grain: $value")
@@ -50,6 +50,11 @@ object DatabaseConnectionTest extends LazyLogging {
     }
 
     Await.ready(result, 10 seconds)
+
+    logger.debug("Trying to get existing grain")
+    logger.debug(s"${mongo.get[TestGrain]("1013")}")
+    logger.debug("Trying to get non-existing grain")
+    logger.debug(s"${mongo.get[TestGrain]("1014")}")
 
     mongo.close()
   }
