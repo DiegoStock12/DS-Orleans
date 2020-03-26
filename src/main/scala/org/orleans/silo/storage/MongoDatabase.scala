@@ -10,48 +10,11 @@ import org.orleans.silo.Services.Grain.Grain.Receive
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
+
+import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
-
-class TestGrain(_id: String) extends Grain(_id) {
-  val someField: String = "testtest"
-
-  override def toString = s"TestGrain(${_id}, $someField)"
-  override def receive: Receive = ???
-}
-
-object DatabaseConnectionExample extends LazyLogging {
-
-  def main(args: Array[String]): Unit = {
-    val grain = new TestGrain("1011")
-
-    val storeResult = MongoDatabase.store(grain)
-    storeResult.onComplete {
-      case Success(value) =>
-        logger.debug(s"Succesfully stored grain. Old value of grain: $value")
-      case Failure(e) =>
-        logger.debug(s"Something went wrong during storing of grain. Cause: $e")
-    }
-
-    Await.ready(storeResult, 10 seconds)
-
-    val result = MongoDatabase.load[TestGrain]("1011")
-    result.onComplete {
-      case Success(value) =>
-        logger.debug(s"Succesfully retrieved grain: $value")
-      case Failure(e) =>
-        logger.debug(s"Something went wrong during loading of grain. Cause: $e")
-    }
-
-    Await.ready(result, 10 seconds)
-
-    MongoDatabase.close()
-  }
-
-}
 
 object MongoDatabase extends GrainDatabase with LazyLogging {
   // Set the log level for mongodb to ERROR
@@ -81,7 +44,8 @@ object MongoDatabase extends GrainDatabase with LazyLogging {
       case Success(document) =>
         logger.debug("Succesfully stored grain! Now deserializing...")
         if (document != null) {
-          Success(Some(GrainSerializer.deserialize(document.toJson())))
+          logger.debug(document.toJson())
+          Success(Some(GrainSerializer.deserialize[T](document.toJson())))
         } else {
           Success(None)
         }
@@ -114,7 +78,7 @@ object MongoDatabase extends GrainDatabase with LazyLogging {
 
     observable.toFuture().transform {
       case Success(document) =>
-        logger.debug("Succesfully loaded grain! Now deserializing...")
+        logger.debug(s"Succesfully loaded grain: ${document.toJson()}! Now deserializing...")
         Success(GrainSerializer.deserialize(document.toJson()))
       case Failure(e) =>
         logger.debug("Something went wrong when storing the grain.")
