@@ -22,6 +22,8 @@ case class CreateGrainRequest[T <: Grain](grainClass: ClassTag[T], grainType: Ty
 case class CreateGrainResponse(id: String, address: String, port: Int)
 
 
+case class ActiveGrainRequest(id: String, grainType: TypeTag[_ <: Grain])
+
 /**
  * Request to find a grain
  * @param id id of the grain to be searched

@@ -48,6 +48,9 @@ class SlaveGrain(_id: String, slave: Slave)
         slave.grainMap.forEach((k ,v) => logger.info(s"$k, $v"))
       }
 
+    case (request: ActiveGrainRequest, sender) =>
+      processGrainActivation(request)
+
     case other =>
       logger.error(s"Unexpected message in the slave grain $other")
 
@@ -128,5 +131,6 @@ class SlaveGrain(_id: String, slave: Slave)
     dispatcher.deleteGrain(id)
   }
 
+  def processGrainActivation[T <: Grain : ClassTag](request: ActiveGrainRequest) = ???
 
 }
