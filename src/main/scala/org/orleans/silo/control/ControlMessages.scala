@@ -21,6 +21,22 @@ case class CreateGrainRequest[T <: Grain](grainClass: ClassTag[T], grainType: Ty
  */
 case class CreateGrainResponse(id: String, address: String, port: Int)
 
+/**
+ * Request to activate existing grain
+ *
+ * @param grainClass class of the grain to create
+ */
+case class ActivateGrainRequest(id: String, grainClass: ClassTag[_ <: Grain])
+
+/**
+ * Response to the create grain operation
+ *
+ * @param id id of the activated grain
+ * @param address address of the dispatcher for that grain
+ * @param port port of the dispatcher
+ */
+case class ActivateGrainResponse(id: String, address: String, port: Int)
+
 
 case class ActiveGrainRequest(id: String, grainType: TypeTag[_ <: Grain])
 
@@ -30,7 +46,7 @@ case class ActiveGrainRequest(id: String, grainType: TypeTag[_ <: Grain])
  */
 // TODO maybe we should allow for other ways of searching
 // by overloading the constructor or optional parameters
-case class SearchGrainRequest(id: String)
+case class SearchGrainRequest(id: String, grainClass: ClassTag[_ <: Grain])
 
 /**
  * Response to a grain search
@@ -46,5 +62,7 @@ case class SearchGrainResponse(address: String, port : Int)
  * @param id id of the grain to be deleted
  */
 case class DeleteGrainRequest(id: String)
+
+
 
 

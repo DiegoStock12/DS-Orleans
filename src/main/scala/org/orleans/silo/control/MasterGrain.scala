@@ -11,6 +11,7 @@ import org.orleans.silo.utils.GrainState
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)
@@ -49,18 +50,49 @@ class MasterGrain(_id: String, master: Master)
   private def processGrainSearch(request: SearchGrainRequest, sender: Sender): Unit = {
     val id = request.id
     if (master.grainMap.containsKey(id)) {
-      val info = master.grainMap.get(id)
-      sender ! SearchGrainResponse(info.address, info.port)
-    } else if (GrainDatabase.instance.contains(id)) {
-      // If the grain exists but is not active at the moment then run activate it on a slave
-      //TODO Create some way to active a grain on a slave from storage
-      sender ! SearchGrainResponse(null, 0)
+      val activeGrains: List[GrainInfo] = master.grainMap.get(id)
+      if (activeGrains.nonEmpty) {
+        val leastLoadedGrain: GrainInfo = activeGrains.reduceLeft((x, y) => if (x.load < y.load) x else y)
+        sender ! SearchGrainResponse(leastLoadedGrain.address, leastLoadedGrain.port)
+      }
+      else {
+        logger.warn("No active grain.")
+        // Activate grain
+        val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
+        val slaveRef = GrainRef(info.uuid, info.host, 1600)
 
-    } else {
+        val tag: ClassTag[_ <: Grain] = request.grainClass
+        val activateRequest: ActivateGrainRequest = ActivateGrainRequest(id, tag)
+
+        val f: Future[Any] = slaveRef ? activateRequest
+        // Await result
+        Await.result(f, 5 seconds)
+        f onComplete {
+          case Success(resp: ActivateGrainResponse) =>
+            // Create the grain info and put it in the grainMap
+            logger.info(s"Received response from the server! $resp")
+            val grainInfo = GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
+            if (master.grainMap.containsKey(resp.id)) {
+              val currentGrains: List[GrainInfo] = master.grainMap.get(resp.id)
+              master.grainMap.replace(resp.id, grainInfo :: currentGrains)
+            } else {
+              master.grainMap.put(resp.id, List(grainInfo))
+            }
+            // Answer to the user
+            sender ! resp
+
+          case Failure(exception) => logger.error(s"Exeception occurred while processing create grain" +
+            s" ${exception.printStackTrace()}")
+        }
+
+      }
+    }
+    else {
       //TODO See how we manage exceptions in this side!
       sender ! SearchGrainResponse(null, 0)
     }
   }
+
 
   /**
    * Choose one slave to run the new grain
@@ -69,9 +101,8 @@ class MasterGrain(_id: String, master: Master)
    * @param sender
    */
   private def processCreateGrain(request: CreateGrainRequest[_], sender: Sender): Unit = {
-    // TODO look for the least loaded slave
     // Now get the only slave
-    val info: SlaveInfo = master.slaves.head._2
+    val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
     val slaveRef = GrainRef(info.uuid, info.host, 1600)
 
     val f: Future[Any] = slaveRef ? request
@@ -82,7 +113,12 @@ class MasterGrain(_id: String, master: Master)
         // Create the grain info and put it in the grainMap
         logger.info(s"Received response from the server! $resp")
         val grainInfo = GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
-        master.grainMap.put(resp.id, grainInfo)
+        if (master.grainMap.containsKey(resp.id)) {
+          val currentGrains: List[GrainInfo] = master.grainMap.get(resp.id)
+          master.grainMap.replace(resp.id, grainInfo :: currentGrains)
+        } else {
+          master.grainMap.put(resp.id, List(grainInfo))
+        }
 
         // Answer to the user
         sender ! resp
@@ -102,12 +138,14 @@ class MasterGrain(_id: String, master: Master)
     val id = request.id
     // Look for the slave that has that request
     if (master.grainMap.containsKey(id)) {
-      val grainInfo: GrainInfo = master.grainMap.get(id)
-      // Send deletion request
-      val slaveRef: GrainRef = GrainRef(grainInfo.slave, grainInfo.address, 1600)
+      val grainInfos: List[GrainInfo] = master.grainMap.get(id)
+      grainInfos.foreach(grainInfo => {
+        // Send deletion request
+        val slaveRef: GrainRef = GrainRef(grainInfo.slave, grainInfo.address, grainInfo.port)
 
-      // Send request to the slave
-      slaveRef ! request
+        // Send request to the slave
+        slaveRef ! request
+      })
 
       // Delete from grainMap
       master.grainMap.remove(id)
