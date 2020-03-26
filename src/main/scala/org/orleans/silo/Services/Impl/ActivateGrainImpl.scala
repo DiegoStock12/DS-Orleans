@@ -24,7 +24,7 @@ class ActivateGrainImpl
       Class.forName(request.name).getDeclaredConstructor().newInstance()
     val activation = newActivation.asInstanceOf[Grain]
 
-    GrainDatabase.instance.load(activation)
+    GrainDatabase.instance.load(activation._id)
 
     val reply = ActivationSuccess(success = true)
 

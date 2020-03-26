@@ -5,6 +5,7 @@ import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, Delete
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
+import scala.reflect.runtime.universe._
 import scala.reflect._
 
 object Testing {
@@ -17,12 +18,13 @@ object Testing {
     // The master grain in the master has ID "master" so it's easy to find!
     val g = GrainRef("master", "localhost", 1400)
     println("Sending request")
-    val tag = classTag[GreeterGrain]
-    println(tag)
+    val classtag = classTag[GreeterGrain]
+    val typetag = typeTag[GreeterGrain]
+    println(classtag)
 
     // Try to create a grain
     println("Creating the grain!")
-    g ? CreateGrainRequest(tag) onComplete {
+    g ? CreateGrainRequest(classtag, typetag) onComplete {
       case Success(value: CreateGrainResponse) =>
         println(value)
         id = value.id

@@ -3,13 +3,14 @@ package org.orleans.silo.control
 import org.orleans.silo.Services.Grain.Grain
 
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 /**
 * Request to create a new grain
 *
 * @param grainClass class of the grain to create
 */
-case class CreateGrainRequest(grainClass: ClassTag[_ <: Grain])
+case class CreateGrainRequest[T <: Grain](grainClass: ClassTag[T], grainType: TypeTag[T])
 
 /**
  * Response to the create grain operation

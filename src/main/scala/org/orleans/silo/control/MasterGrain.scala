@@ -29,7 +29,7 @@ class MasterGrain(_id: String, master: Master)
       logger.info("Master grain handling grain search request")
       processGrainSearch(request, sender)
 
-    case (request: CreateGrainRequest, sender: Sender) =>
+    case (request: CreateGrainRequest[_], sender: Sender) =>
       logger.info("Master grain handling create grain request")
       processCreateGrain(request, sender)
 
@@ -63,7 +63,7 @@ class MasterGrain(_id: String, master: Master)
    * @param request
    * @param sender
    */
-  private def processCreateGrain(request: CreateGrainRequest, sender: Sender): Unit = {
+  private def processCreateGrain(request: CreateGrainRequest[_], sender: Sender): Unit = {
     // TODO look for the least loaded slave
     // Now get the only slave
     val info: SlaveInfo = master.slaves.head._2

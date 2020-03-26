@@ -6,10 +6,12 @@ import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap, Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 
 import scala.reflect._
+import scala.reflect.runtime.universe._
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
+import org.orleans.silo.storage.GrainDatabase
 
 
 // TODO how to deal with replicated grains that could have the same ID?
@@ -97,7 +99,7 @@ private class MessageReceiver(
  * @param port port in which the dispatcher will be waiting for requests
  * @tparam T type of the grain that the dispatcher will serve
  */
-class Dispatcher[T <: Grain : ClassTag](val port: Int)
+class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
     extends Runnable
     with LazyLogging {
 
@@ -145,6 +147,9 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
     // Create a mailbox
     val mbox: Mailbox = new Mailbox(grain)
     logger.info(s"New mailbox id $id")
+
+    // Store the new grain to persistant storage
+    GrainDatabase.instance.store[T](grain)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)

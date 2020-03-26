@@ -2,10 +2,12 @@ package org.orleans.silo.control
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
 
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 import scala.reflect._
 
 
@@ -29,12 +31,13 @@ class SlaveGrain(_id: String, slave: Slave)
    *
    * @return
    */
-  override def receive = {
+  override def receive: Receive = {
 
     // Process creation requests
-    case (request: CreateGrainRequest, sender: Sender) =>
+    case (request: CreateGrainRequest[_], sender: Sender) =>
       logger.info("Slave grain processing grain creation request")
-      processGrainCreation(request, sender)(request.grainClass)
+
+      processGrainCreation(request, sender)(request.grainClass, request.grainType)
 
     // Process deletion requests
     case (request: DeleteGrainRequest, _) =>
@@ -55,10 +58,11 @@ class SlaveGrain(_id: String, slave: Slave)
    *
    * @param request
    */
-  def processGrainCreation[T <: Grain : ClassTag](request: CreateGrainRequest, sender: Sender): Unit = {
+  def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[_], sender: Sender) = {//(implicit ct: ClassTag[T], tt: TypeTag[T]): Unit = {
     logger.info(s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
-    // If there exists a dispatcher for that grain just add it
-    if (slave.registeredGrains.contains(request.grainClass)) {
+
+  // If there exists a dispatcher for that grain just add it
+    if (slave.registeredGrains.contains(Tuple2(request.grainClass, request.grainType))) {
       logger.info(s"Found existing dispatcher for class")
 
       // Add the grain to the dispatcher
