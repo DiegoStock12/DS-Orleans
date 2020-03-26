@@ -55,15 +55,23 @@ object DatabaseConnectionExample extends LazyLogging {
 
 object MongoDatabase extends LazyLogging {
   // Set the log level for mongodb to ERROR
-  LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
+  LoggerFactory.getILoggerFactory
+    .asInstanceOf[LoggerContext]
+    .getLogger("org.mongodb.driver")
+    .setLevel(Level.ERROR)
 
-  private val connectionString: String = "mongodb://ds-orleans:SaFBNMjzP9CMLt@167.172.42.150:27017/"
+  private val connectionString: String =
+    "mongodb://ds-orleans:SaFBNMjzP9CMLt@167.172.42.150:27017/"
   lazy private val client = MongoClient(connectionString)
   lazy private val database: MongoDatabase = client.getDatabase("grains")
-  lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grain")
+  lazy private val grainCollection: MongoCollection[Document] =
+    database.getCollection("grain")
 
   def setMongoLogLevel(level: Level): Unit = {
-    LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(level)
+    LoggerFactory.getILoggerFactory
+      .asInstanceOf[LoggerContext]
+      .getLogger("org.mongodb.driver")
+      .setLevel(level)
   }
 
   /**
@@ -72,10 +80,14 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Specific subtype of the grain
     * @return Returns a Future that contains the old stored grain if it was successfully stored or else an exception
     */
-  def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]] = {
+  def store[T <: Grain with AnyRef: ClassTag: TypeTag](
+      grain: T): Future[Option[T]] = {
     val jsonString = GrainSerializer.serialize(grain)
     logger.debug(s"Inserting or updating grain: $grain")
-    val result = grainCollection.findOneAndUpdate(equal("_id", grain._id), Document("$set" -> Document(jsonString)), FindOneAndUpdateOptions().upsert(true))
+    val result = grainCollection.findOneAndUpdate(
+      equal("_id", grain._id),
+      Document("$set" -> Document(jsonString)),
+      FindOneAndUpdateOptions().upsert(true))
 
     result.toFuture().transform {
       case Success(document) =>
@@ -98,7 +110,7 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T] = {
+  def load[T <: Grain with AnyRef: ClassTag: TypeTag](id: String): Future[T] = {
     load("_id", id)
   }
 
@@ -109,8 +121,10 @@ object MongoDatabase extends LazyLogging {
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T] = {
-    val observable: SingleObservable[Document] = grainCollection.find(equal(fieldName, value)).first()
+  def load[T <: Grain with AnyRef: ClassTag: TypeTag](fieldName: String,
+                                                      value: Any): Future[T] = {
+    val observable: SingleObservable[Document] =
+      grainCollection.find(equal(fieldName, value)).first()
 
     observable.toFuture().transform {
       case Success(document) =>
@@ -130,4 +144,3 @@ object MongoDatabase extends LazyLogging {
     client.close()
   }
 }
-

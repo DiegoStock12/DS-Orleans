@@ -1,6 +1,7 @@
 package main.scala.org.orleans.client
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.{Grain, GrainRef}
+import org.orleans.developer.twitter.TwitterAcountRef
+import org.orleans.silo.Services.Grain.{Grain, GrainRef, GrainReference}
 import org.orleans.silo.control.{
   CreateGrainRequest,
   CreateGrainResponse,
@@ -13,10 +14,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.{ClassTag, classTag}
 import scala.util.{Failure, Success}
-
-object OrleansRuntime {
-  def apply(): OrleansRuntimeBuilder = new OrleansRuntimeBuilder()
-}
 
 class OrleansRuntimeBuilder extends LazyLogging {
   private var _host: String = "localhost"
@@ -50,6 +47,57 @@ class OrleansRuntimeBuilder extends LazyLogging {
   }
 
 }
+object OrleansRuntime {
+  def apply(): OrleansRuntimeBuilder = new OrleansRuntimeBuilder()
+
+  def createGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+      master: GrainRef): Future[Ref] = {
+    val tagGrain = classTag[G]
+    val tagRef = classTag[Ref]
+    (master ? CreateGrainRequest(tagGrain)).flatMap {
+      case value: CreateGrainResponse => {
+        val id = value.id
+        val address = value.address
+        val port = value.port
+        val grainRef = GrainRef(id, address, port)
+
+        val ref: Ref = tagRef.runtimeClass
+          .getDeclaredConstructor()
+          .newInstance()
+          .asInstanceOf[Ref]
+        ref.setGrainRef(grainRef)
+        ref.setMasterGrain(master)
+        Future.successful(ref)
+      }
+      case _ =>
+        Future.failed[Ref](new RuntimeException("Creating a grain failed."))
+    }
+  }
+
+  def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+      id: String,
+      master: GrainRef): Future[Ref] = {
+    val tag = classTag[G]
+    val tagRef = classTag[Ref]
+    (master ? SearchGrainRequest(id)).flatMap {
+      case value: SearchGrainResponse => {
+        val address = value.address
+        val port = value.port
+        val grainRef = GrainRef(id, address, port)
+
+        val ref: Ref = tagRef.runtimeClass
+          .getDeclaredConstructor()
+          .newInstance()
+          .asInstanceOf[Ref]
+        ref.setGrainRef(grainRef)
+        ref.setMasterGrain(master)
+        Future.successful(ref)
+      }
+      case _ =>
+        Future.failed[Ref](new RuntimeException(s"Search grain ${id} failed."))
+    }
+  }
+}
 
 class OrleansRuntime(private val host: String,
                      private val port: Int,
@@ -59,26 +107,11 @@ class OrleansRuntime(private val host: String,
   val MASTER_ID: String = "master"
   val master: GrainRef = GrainRef(MASTER_ID, host, port)
 
-  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] = {
-    val tag = classTag[G]
-    (master ? CreateGrainRequest(tag)).flatMap {
-      case value: CreateGrainResponse =>
-        Future.successful(GrainRef(value.id, value.address, value.port))
-      case _ =>
-        Future.failed[GrainRef](
-          new RuntimeException("Creating a grain failed."))
-    }
-  }
-  def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] = {
-    val tag = classTag[G]
-    (master ? SearchGrainRequest(id)).flatMap {
-      case value: SearchGrainResponse =>
-        Future.successful(GrainRef(id, value.address, value.port))
-      case _ =>
-        Future.failed[GrainRef](
-          new RuntimeException(s"Search grain ${id} failed."))
-    }
-  }
+  def createGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag]()
+    : Future[Ref] = OrleansRuntime.createGrain[G, Ref](master)
+
+  def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+      id: String): Future[Ref] = OrleansRuntime.getGrain[G, Ref](id, master)
 
   def getHost() = host
   def getPort() = port

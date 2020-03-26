@@ -10,18 +10,18 @@ import org.orleans.silo.utils.GrainState
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)
-  extends Grain(_id)
+    extends Grain(_id)
     with LazyLogging {
-
 
   logger.info("MASTER GRAIN RUNNING!")
 
   /**
-   * Execution context of the master to run the futures
-   */
+    * Execution context of the master to run the futures
+    */
   implicit val ec: ExecutionContext = master.executionContext
 
   override def receive: Receive = {
@@ -40,30 +40,31 @@ class MasterGrain(_id: String, master: Master)
   }
 
   /**
-   * Processes a request for searching a grain and responds to the sender
-   *
-   * @param request
-   * @param sender
-   */
-  private def processGrainSearch(request: SearchGrainRequest, sender: Sender): Unit = {
+    * Processes a request for searching a grain and responds to the sender
+    *
+    * @param request
+    * @param sender
+    */
+  private def processGrainSearch(request: SearchGrainRequest,
+                                 sender: Sender): Unit = {
     val id = request.id
     if (master.grainMap.containsKey(id)) {
       val info = master.grainMap.get(id)
       sender ! SearchGrainResponse(info.address, info.port)
-    }
-    else {
+    } else {
       //TODO See how we manage exceptions in this side!
       sender ! SearchGrainResponse(null, 0)
     }
   }
 
   /**
-   * Choose one slave to run the new grain
-   *
-   * @param request
-   * @param sender
-   */
-  private def processCreateGrain(request: CreateGrainRequest, sender: Sender): Unit = {
+    * Choose one slave to run the new grain
+    *
+    * @param request
+    * @param sender
+    */
+  private def processCreateGrain(request: CreateGrainRequest,
+                                 sender: Sender): Unit = {
     // TODO look for the least loaded slave
     // Now get the only slave
     val info: SlaveInfo = master.slaves.head._2
@@ -76,38 +77,40 @@ class MasterGrain(_id: String, master: Master)
       case Success(resp: CreateGrainResponse) =>
         // Create the grain info and put it in the grainMap
         logger.info(s"Received response from the server! $resp")
-        val grainInfo = GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
+        val grainInfo =
+          GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
         master.grainMap.put(resp.id, grainInfo)
 
         // Answer to the user
         sender ! resp
 
-      case Failure(exception) => logger.error(s"Exeception occurred while processing create grain" +
-        s" ${exception.printStackTrace()}")
+      case Failure(exception) =>
+        logger.error(
+          s"Exeception occurred while processing create grain" +
+            s" ${exception.printStackTrace()}")
     }
   }
 
-
   /**
-   * Send the delete grain request to the appropriate Slave
-   *
-   * @param request
-   */
+    * Send the delete grain request to the appropriate Slave
+    *
+    * @param request
+    */
   private def processDeleteGrain(request: DeleteGrainRequest): Unit = {
     val id = request.id
     // Look for the slave that has that request
     if (master.grainMap.containsKey(id)) {
       val grainInfo: GrainInfo = master.grainMap.get(id)
       // Send deletion request
-      val slaveRef: GrainRef = GrainRef(grainInfo.slave, grainInfo.address, 1600)
+      val slaveRef: GrainRef =
+        GrainRef(grainInfo.slave, grainInfo.address, 1600)
 
       // Send request to the slave
       slaveRef ! request
 
       // Delete from grainMap
       master.grainMap.remove(id)
-    }
-    else {
+    } else {
       logger.error(s"Not existing ID in the grainMap $id")
     }
 
