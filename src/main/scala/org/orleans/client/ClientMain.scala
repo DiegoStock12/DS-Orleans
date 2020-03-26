@@ -3,7 +3,9 @@ import main.scala.org.orleans.client.OrleansRuntime
 import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.Test.GreeterGrain
 
-import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
 
 object ClientMain {
 
@@ -14,6 +16,11 @@ object ClientMain {
       .setPort(1400)
       .build()
 
+    val time = System.currentTimeMillis()
     val grain: Future[GrainRef] = runtime.createGrain[GreeterGrain]()
+    val grainRef = Await.result(grain, 5 seconds)
+
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+    println(grainRef)
   }
 }
