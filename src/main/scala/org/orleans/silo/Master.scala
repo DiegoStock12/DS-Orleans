@@ -347,7 +347,7 @@ class Master(masterConfig: ServerConfig,
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.warn(s"Processing load data: ${packet.data}")
+    //logger.warn(s"Processing load data: ${packet.data}")
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
@@ -362,14 +362,14 @@ class Master(masterConfig: ServerConfig,
               this.grainMap.replace(id, newGrainInfo)
             }
           } else {
-            logger.warn(
-              "Slave reports about grain that master doesn't know about.")
+            //logger.warn(
+            // "Slave reports about grain that master doesn't know about.")
           }
         }
         case _ => logger.warn("Couldn't parse packet with metrics.")
       }
     }
-    logger.warn(s"${this.grainMap}")
+    //logger.warn(s"${this.grainMap}")
   }
 
   /**

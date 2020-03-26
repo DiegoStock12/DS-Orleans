@@ -57,17 +57,18 @@ object ClientMain {
       .currentTimeMillis() - time}ms")
 
     time = System.currentTimeMillis()
-    val twitterWouterTwo: TwitterAcountRef =
-      Await.result(twitter.createAccount("pietje"), 5 seconds) match {
-        case Success(ref: TwitterAcountRef) => ref
-        case Failure(msg) => {
-          println(msg)
-          null
-        }
-      }
-    println(
-      s"Trying to create a second TwitterAccount grain for Wouter took ${System
-        .currentTimeMillis() - time}ms")
+    Thread.sleep(1000)
+//    val twitterWouterTwo: TwitterAcountRef =
+//      Await.result(twitter.createAccount("pietje"), 5 seconds) match {
+//        case Success(ref: TwitterAcountRef) => ref
+//        case Failure(msg) => {
+//          println(msg)
+//          null
+//        }
+//      }
+//    println(
+//      s"Trying to create a second TwitterAccount grain for Wouter took ${System
+//        .currentTimeMillis() - time}ms")
 
   }
 }

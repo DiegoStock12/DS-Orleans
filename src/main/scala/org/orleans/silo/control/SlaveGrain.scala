@@ -58,16 +58,20 @@ class SlaveGrain(_id: String, slave: Slave)
     logger.info(
       s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
     // If there exists a dispatcher for that grain just add it
-    if (slave.registeredGrains.contains(request.grainClass.runtimeClass)) {
+    if (slave.registeredGrains.contains(request.grainClass.runtimeClass) || !slave.dispatchers
+          .filter(_.getType() == classTag[T])
+          .isEmpty) {
       logger.info(s"Found existing dispatcher for class")
 
       // Add the grain to the dispatcher
       val dispatcher: Dispatcher[T] = slave.dispatchers
         .filter {
-          _.isInstanceOf[Dispatcher[T]]
+          _.getType() == classTag[T]
         }
         .head
         .asInstanceOf[Dispatcher[T]]
+
+      println(dispatcher.getType())
 
       // Get the ID for the newly created grain
       val id = dispatcher.addGrain()

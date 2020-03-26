@@ -6,7 +6,11 @@ import java.util.concurrent.ConcurrentHashMap
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.control.SlaveGrain
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.RegistryFactory
@@ -113,7 +117,7 @@ class Slave(val slaveConfig: ServerConfig,
 
   // Hashmap that identifies each grainID with its type so
   // we can check which dispatcher is in charge of that ID
-  val grainMap: ConcurrentHashMap[String,  ClassTag[_ <: Grain]] =
+  val grainMap: ConcurrentHashMap[String, ClassTag[_ <: Grain]] =
     new ConcurrentHashMap[String, ClassTag[_ <: Grain]]()
 
   // Metadata for the slave.
@@ -138,7 +142,9 @@ class Slave(val slaveConfig: ServerConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
+  @volatile
   var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+
   private var portsUsed: Set[Int] = Set()
 
   /**
@@ -172,8 +178,9 @@ class Slave(val slaveConfig: ServerConfig,
     dispatchers = mainDispatcher :: dispatchers
 
     // Create the new thread to run the dispatcher and start it
-    val mainDispatcherThread : Thread = new Thread(mainDispatcher)
-    mainDispatcherThread.setName(s"Slave-${this.slaveConfig.host}-MainDispatcher")
+    val mainDispatcherThread: Thread = new Thread(mainDispatcher)
+    mainDispatcherThread.setName(
+      s"Slave-${this.slaveConfig.host}-MainDispatcher")
     mainDispatcherThread.start()
   }
 
@@ -181,7 +188,7 @@ class Slave(val slaveConfig: ServerConfig,
     registeredGrains.foreach { x =>
       // Create a new dispatcher and run it in a new thread
       val d = new Dispatcher(getFreePort)(x)
-      val dThread : Thread = new Thread(d)
+      val dThread: Thread = new Thread(d)
       dThread.setName(s"Dispatcher-${d.port}-${x.runtimeClass.getName}")
       dThread.start()
 
