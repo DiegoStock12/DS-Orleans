@@ -3,21 +3,8 @@ package org.orleans.silo
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-import org.orleans.silo.Services.Impl.CreateGrainImpl
-import org.orleans.silo.createGrain.CreateGrainGrpc
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{Server, ServerBuilder}
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Impl.{
-  CreateGrainImpl,
-  GrainSearchImpl,
-  UpdateStateServiceImpl
-}
 import org.orleans.silo.communication.ConnectionProtocol.{
   Packet,
   PacketType,
@@ -28,23 +15,21 @@ import org.orleans.silo.communication.{
   PacketManager,
   ConnectionProtocol => protocol
 }
-import org.orleans.silo.createGrain.CreateGrainGrpc
+import org.orleans.silo.control.MasterGrain
 import org.orleans.silo.dispatcher.Dispatcher
-import org.orleans.silo.grainSearch.GrainSearchGrpc
-import org.orleans.silo.runtime.Runtime
-import org.orleans.silo.runtime.Runtime.GrainInfo
-import org.orleans.silo.updateGrainState.UpdateGrainStateServiceGrpc
-import org.orleans.silo.utils.{
-  GrainDescriptor,
-  GrainState,
-  ServerConfig,
-  SlaveDetails
-}
+import org.orleans.silo.utils.GrainState.GrainState
+import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
-import scala.reflect._
+import scala.reflect.{ClassTag, _}
+
+// Class that will serve as index for the grain map
+case class GrainInfo(slave: String,
+                     address: String,
+                     port: Int,
+                     state: GrainState,
+                     load: Int)
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -111,22 +96,19 @@ class MasterBuilder extends LazyLogging {
 
 /**
   * Master silo. Keeps track of all slaves and is the main entry point of the runtime.
-  * @param masterConfig Server configuration for the master
+  *
+  * @param masterConfig     Server configuration for the master
   * @param executionContext Execution context for the RPC services
   */
 class Master(masterConfig: ServerConfig,
-             executionContext: ExecutionContext,
+             val executionContext: ExecutionContext,
              registeredGrains: List[ClassTag[_ <: Grain]] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
 
-  // For now just define it as a gRPC endpoint
-  self =>
-  private[this] var master: Server = null
-
   // Hashmap to save the grain references
-  private val grainMap: ConcurrentHashMap[String, GrainInfo] =
+  val grainMap: ConcurrentHashMap[String, GrainInfo] =
     new ConcurrentHashMap[String, GrainInfo]()
 
   // Metadata for the master.
@@ -144,7 +126,7 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
-  private var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+  var dispatchers: List[Dispatcher[_ <: Grain]] = List()
   private var portsUsed: Set[Int] = Set()
 
   /**
@@ -166,20 +148,21 @@ class Master(masterConfig: ServerConfig,
     masterThread.start()
 
     // Starting the dispatchers
-    logger.debug("Starting dispatchers.")
+    logger.debug("Starting Main dispatcher.")
     startMainDispatcher()
-    startGrainDispatchers()
   }
 
   def startMainDispatcher() = {
-    //TODO dispatcher here for 'general grain'
-    //use this masterConfig.tcpPort
-  }
+    // Start dispatcher for the general grain
+    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort)
+    mainDispatcher.addMasterGrain(this)
+    dispatchers = mainDispatcher :: dispatchers
 
-  def startGrainDispatchers() = {
-    registeredGrains.foreach { x =>
-      dispatchers = new Dispatcher(getFreePort)(x) :: dispatchers
-    }
+    // Create the new thread to run the dispatcher and start it
+    val mainDispatcherThread: Thread = new Thread(mainDispatcher)
+    mainDispatcherThread.setName(
+      s"Master-${this.masterConfig.host}-MainDispatcher")
+    mainDispatcherThread.start()
   }
 
   def getFreePort: Int = {
@@ -358,9 +341,10 @@ class Master(masterConfig: ServerConfig,
 
   /**
     * Processes load on the grains data.
+    *
     * @param packet Packet with load metrics
-    * @param host The host receiving from.
-    * @param port The port receiving from.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
     logger.warn(s"Processing load data: ${packet.data}")
@@ -370,11 +354,10 @@ class Master(masterConfig: ServerConfig,
           if (this.grainMap.containsKey(id)) {
             val grainInfo: GrainInfo = this.grainMap.get(id)
             if (grainInfo.load != load.toInt) {
-              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.port,
+              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.slave,
+                                                      grainInfo.address,
+                                                      grainInfo.port,
                                                       grainInfo.state,
-                                                      grainInfo.grain,
-                                                      grainInfo.grainType,
-                                                      grainInfo.grainPackage,
                                                       load.toInt)
               this.grainMap.replace(id, newGrainInfo)
             }

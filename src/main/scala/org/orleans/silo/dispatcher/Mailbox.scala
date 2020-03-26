@@ -24,11 +24,15 @@ object Sender{
   def apply(oos: ObjectOutputStream): Sender = new Sender(oos)
 }
 /**
- * How we're gonna pass the sender to the grain so he can reply to the message
+ * How we're gonna pass the sender to the grain so he can reply to the message-
+ * After sending close the stream, cause the sender cannot reply back through the same socket
  * @param stream ObjectOutputStream that the sender can use to write back to the source
  */
 class Sender(private[dispatcher] val stream: ObjectOutputStream){
-  def !(msg: Any) = stream.writeObject(msg)
+  def !(msg: Any) = {
+    stream.writeObject(msg)
+    stream.close()
+  }
 }
 
 /**
@@ -42,8 +46,7 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
   val id: String = grain._id
 
   // length of the message queue for that actor
-  @volatile
-  var length : Int = inbox.size()
+  def length : Int = inbox.size()
 
   /**
    * Adds a new message to the inbox
@@ -51,7 +54,6 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
    * @return
    */
   def addMessage(msg : Message) = {
-    logger.info(s"Appending new message to queue $msg")
     this.inbox.add(msg)
   }
 
@@ -80,7 +82,7 @@ private[dispatcher] class Mailbox (val grain: Grain) extends Runnable with LazyL
       logger.info(s"Increasing the counter for messages processed for grain: ${id}")
       val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
       registry.addRequestHandled()
-      msg.sender.stream.close()
+      //msg.sender.stream.close()
     }
     this.isRunning = false
   }
