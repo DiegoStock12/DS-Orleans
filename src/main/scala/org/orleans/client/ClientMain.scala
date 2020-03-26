@@ -16,11 +16,20 @@ object ClientMain {
       .setPort(1400)
       .build()
 
-    val time = System.currentTimeMillis()
-    val grain: Future[GrainRef] = runtime.createGrain[GreeterGrain]()
-    val grainRef = Await.result(grain, 5 seconds)
+    var time = System.currentTimeMillis()
+    val createGrainFuture: Future[GrainRef] =
+      runtime.createGrain[GreeterGrain]()
+    val grainRef = Await.result(createGrainFuture, 5 seconds)
 
-    println(s"That took ${System.currentTimeMillis() - time}ms")
-    println(grainRef)
+    println(s"Creating a grain took ${System.currentTimeMillis() - time}ms")
+
+    time = System.currentTimeMillis()
+    val searchGrainFuture: Future[GrainRef] =
+      runtime.getGrain[GreeterGrain](grainRef.id)
+    val searchGrainRef = Await.result(searchGrainFuture, 5 seconds)
+
+    println(s"Searching a grain took ${System.currentTimeMillis() - time}ms")
+    println(s"GrainRefs are equal: ${grainRef == searchGrainRef}.")
+
   }
 }
