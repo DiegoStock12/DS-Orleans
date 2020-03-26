@@ -31,7 +31,7 @@ case class GrainInfo(slave: String,
                      address: String,
                      port: Int,
                      state: GrainState,
-                     load: Int)
+                     var load: Int)
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -111,8 +111,8 @@ class Master(masterConfig: ServerConfig,
     with PacketListener {
 
   // Hashmap to save the grain references
-  val grainMap: ConcurrentHashMap[String, GrainInfo] =
-    new ConcurrentHashMap[String, GrainInfo]()
+  val grainMap: ConcurrentHashMap[String, List[GrainInfo]] =
+    new ConcurrentHashMap[String, List[GrainInfo]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -163,8 +163,12 @@ class Master(masterConfig: ServerConfig,
 
     // Create the new thread to run the dispatcher and start it
     val mainDispatcherThread: Thread = new Thread(mainDispatcher)
+<<<<<<< HEAD
     mainDispatcherThread.setName(
       s"Master-${this.masterConfig.host}-MainDispatcher")
+=======
+    mainDispatcherThread.setName(s"Master-${this.masterConfig.host}-MainDispatcher")
+>>>>>>> Measure total load of the slave
     mainDispatcherThread.start()
   }
 
@@ -355,18 +359,16 @@ class Master(masterConfig: ServerConfig,
       d.split(":") match {
         case Array(id, load) => {
           if (this.grainMap.containsKey(id)) {
-            val grainInfo: GrainInfo = this.grainMap.get(id)
-            if (grainInfo.load != load.toInt) {
-              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.slave,
-                                                      grainInfo.address,
-                                                      grainInfo.port,
-                                                      grainInfo.state,
-                                                      load.toInt)
-              this.grainMap.replace(id, newGrainInfo)
+            val grain: Option[GrainInfo] = this.grainMap.get(id).find(x => x.address.equals(host) && x.port.equals(port))
+            if (grain.isDefined) {
+              val reportingGrain: GrainInfo = grain.get
+              reportingGrain.load = load.toInt
+              updateSlavesTotalLoad()
+            } else {
+              logger.warn(s"Master does not see any activation of the grain ${id}.")
             }
           } else {
-            logger.warn(
-              "Slave reports about grain that master doesn't know about.")
+            logger.warn("Slave reports about grain that master doesn't know about.")
           }
         }
         case _ => logger.warn("Couldn't parse packet with metrics.")
@@ -375,15 +377,26 @@ class Master(masterConfig: ServerConfig,
     logger.warn(s"${this.grainMap}")
   }
 
+
+  def updateSlavesTotalLoad(): Unit = {
+    for ((k, v) <- this.slaves) {
+      var totalLoad: Int = 0
+      this.grainMap.forEach((kg, vg) => {
+        totalLoad += vg.filter(grain => v.host.equals(grain.slave)).foldLeft(0)((acc, b) => acc + b.load)
+      })
+      v.totalLoad = totalLoad
+    }
+  }
+
   /**
-    * Processes a shutdown of a slave.
-    * 1) Remove the slave from its own table.
-    * 2) Make other slaves aware this slave is removed.
-    *
-    * @param packet The shutdown packet.
-    * @param host   The host receiving from.
-    * @param port   The port receiving from.
-    */
+   * Processes a shutdown of a slave.
+   * 1) Remove the slave from its own table.
+   * 2) Make other slaves aware this slave is removed.
+   *
+   * @param packet The shutdown packet.
+   * @param host   The host receiving from.
+   * @param port   The port receiving from.
+   */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Remove the slave.
     removeSlave(packet.uuid)
