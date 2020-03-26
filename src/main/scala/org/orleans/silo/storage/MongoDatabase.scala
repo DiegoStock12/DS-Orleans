@@ -10,9 +10,9 @@ import org.orleans.silo.Services.Grain.Grain.Receive
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import scala.concurrent.Future
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
@@ -82,6 +82,19 @@ object MongoDatabase extends GrainDatabase with LazyLogging {
         Success(GrainSerializer.deserialize(document.toJson()))
       case Failure(e) =>
         logger.debug("Something went wrong when storing the grain.")
+        Failure(e)
+    }
+  }
+
+  override def delete[T <: Grain with AnyRef : ClassTag : universe.TypeTag](id: String): Future[T] = {
+    val observable: SingleObservable[Document] = grainCollection.findOneAndDelete(equal("_id", id))
+
+    observable.toFuture().transform {
+      case Success(document) =>
+        logger.debug(s"Succesfully deleted grain: ${document.toJson()}! Now deserializing...")
+        Success(GrainSerializer.deserialize(document.toJson()))
+      case Failure(e) =>
+        logger.error("Something went wrong when deleting the grain.")
         Failure(e)
     }
   }

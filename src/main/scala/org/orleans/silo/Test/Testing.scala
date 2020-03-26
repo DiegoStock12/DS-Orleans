@@ -15,7 +15,7 @@ object Testing {
   def main(args: Array[String]): Unit = {
     println("Trying to get the socket")
 
-    var id: String = ""
+    var id: String = "initial value"
 
     // The master grain in the master has ID "master" so it's easy to find!
     val g = GrainRef("master", "localhost", 1400)
@@ -27,16 +27,15 @@ object Testing {
     // Try to create a grain
     println("Creating the grain!")
     val result = g ? CreateGrainRequest(classtag, typetag)
-    result.map {
-      case Success(value: CreateGrainResponse) =>
+    val mappedResult = result.map {
+      case value: CreateGrainResponse =>
         println("Received CreateGrainResponse!")
         println(value)
         id = value.id
-      case _ => println("not working")
+      case other => println(s"Something went wrong: $other")
     }
-    Await.result(result, 5 seconds)
-//    println(result.value)
-//    Thread.sleep(10)
+    Await.result(mappedResult, 5 seconds)
+
     println(s"ID of the grain is $id")
     println("Searching for the grain")
 
@@ -58,7 +57,8 @@ object Testing {
       case _ => "Not working"
     }
 
-    Thread.sleep(1000)
+    Thread.sleep(10000)
+
 
 
     // Delete that grain

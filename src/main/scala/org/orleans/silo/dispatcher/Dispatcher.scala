@@ -13,6 +13,8 @@ import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
 import org.orleans.silo.storage.GrainDatabase
 
+import scala.concurrent.Future
+
 
 // TODO how to deal with replicated grains that could have the same ID?
 // TODO maybe different mailboxes or a threadpool that distributes the mailbox between the two grains??
@@ -216,6 +218,11 @@ class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
     // delete from index and delete mailbox
     logger.info(s"Deleting information for grain $id")
     this.grainMap.remove(this.messageReceiver.mailboxIndex.get(id))
+
+    // Deleting grain from database. Returned Future contains the deleted grain if successful
+    // and otherwise a Failure with the exception
+    val result: Future[T] = GrainDatabase.instance.delete[T](id)
+
     this.messageReceiver.mailboxIndex.remove(id)
   }
 
