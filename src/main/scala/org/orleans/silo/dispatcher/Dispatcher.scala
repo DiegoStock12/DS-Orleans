@@ -135,7 +135,7 @@ class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
    * Creates a new grain and returns its id so it can be referenced
    * by the user and indexed by the master
    */
-  def addGrain(): String = {
+  def addGrain(implicit typeTag: TypeTag[T]): String = {
     // Create the id for the new grain
     val id: String = UUID.randomUUID().toString
     // Create a new grain of that type with the new ID
@@ -149,7 +149,8 @@ class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
     logger.info(s"New mailbox id $id")
 
     // Store the new grain to persistant storage
-    GrainDatabase.instance.store[T](grain)
+    logger.info(s"Type of grain: $typeTag")
+    GrainDatabase.instance.store(grain)(classTag, typeTag)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)

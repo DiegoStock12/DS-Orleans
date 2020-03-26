@@ -35,8 +35,8 @@ class SlaveGrain(_id: String, slave: Slave)
 
     // Process creation requests
     case (request: CreateGrainRequest[_], sender: Sender) =>
-      logger.info("Slave grain processing grain creation request")
-
+      logger.info(s"Slave grain processing grain creation request with classtag: ${request.grainClass} and typetag:  ${request.grainType}")
+      logger.info("")
       processGrainCreation(request, sender)(request.grainClass, request.grainType)
 
     // Process deletion requests
@@ -58,7 +58,7 @@ class SlaveGrain(_id: String, slave: Slave)
    *
    * @param request
    */
-  def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[_], sender: Sender) = {//(implicit ct: ClassTag[T], tt: TypeTag[T]): Unit = {
+  def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[T], sender: Sender) = {
     logger.info(s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
 
   // If there exists a dispatcher for that grain just add it
@@ -70,8 +70,11 @@ class SlaveGrain(_id: String, slave: Slave)
         _.isInstanceOf[Dispatcher[T]]
       }.head.asInstanceOf[Dispatcher[T]]
 
+      logger.info(s"grainType: ${request.grainType} typetag: $typeTag")
+
       // Get the ID for the newly created grain
-      val id = dispatcher.addGrain()
+      // It is necessary to add the typeTag here because the dispacther type is eliminated by type erasure
+      val id = dispatcher.addGrain(typeTag)
 
       // Add it to the grainMap
       logger.info(s"Adding to the slave grainmap id $id")
@@ -87,7 +90,7 @@ class SlaveGrain(_id: String, slave: Slave)
       val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
       // Add the dispatchers to the dispatcher
       slave.dispatchers = dispatcher :: slave.dispatchers
-      val id: String = dispatcher.addGrain()
+      val id: String = dispatcher.addGrain(typeTag)
 
       // Create and run the dispatcher Thread
       val newDispatcherThread : Thread = new Thread(dispatcher)
