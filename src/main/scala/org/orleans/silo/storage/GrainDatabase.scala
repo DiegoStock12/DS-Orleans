@@ -6,6 +6,10 @@ import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
+object GrainDatabase {
+  lazy val instance: GrainDatabase = MongoDatabase
+}
+
 trait GrainDatabase {
 
   def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]]
