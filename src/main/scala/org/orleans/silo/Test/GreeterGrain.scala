@@ -14,12 +14,13 @@ class GreeterGrain(_id: String) extends Grain(_id)
    * @return
    */
   def receive = {
-    case ("hello", _) =>
+    case ("hi", _) =>
       logger.info("Hello back to you")
-    case (_, sender: Sender) =>
-      logger.info("replying")
+    case ("hello", sender: Sender) =>
+      logger.info("Replying to the sender!")
       // Answer to the sender of the message
       // Asynchronous response
-      sender ! "replying to you!"
+      sender ! "Hello World!"
   }
 }
+

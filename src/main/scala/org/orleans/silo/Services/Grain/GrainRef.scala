@@ -15,7 +15,7 @@ object GrainRef extends LazyLogging{
 
 // TODO maybe for fire and forget we could use DatagramSocket, but then
 // we could not be sure that it has been received
-class GrainRef private(val id: String, val address: String, val port : Int) {
+class GrainRef private(val id: String, val address: String, val port : Int) extends LazyLogging {
 
   private var s: Socket = _
   private var outStream : ObjectOutputStream = _
@@ -39,6 +39,7 @@ class GrainRef private(val id: String, val address: String, val port : Int) {
     s = new Socket(address, port)
     outStream = new ObjectOutputStream(s.getOutputStream)
     inStream = new ObjectInputStream(s.getInputStream)
+    logger.info(s"Sending message ${(id, msg)}")
     outStream.writeObject((id, msg))
   }
 
@@ -64,7 +65,6 @@ class GrainRef private(val id: String, val address: String, val port : Int) {
     outStream = new ObjectOutputStream(s.getOutputStream)
     inStream = new ObjectInputStream(s.getInputStream)
     outStream.writeObject((id, msg))
-//    outStream.writeObject((id, msg))
     Future {
       val resp: Any = inStream.readObject()
       resp
