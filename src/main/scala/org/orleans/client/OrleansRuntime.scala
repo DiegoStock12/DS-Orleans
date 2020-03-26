@@ -1,17 +1,13 @@
 package main.scala.org.orleans.client
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.{Grain, GrainRef}
-import org.orleans.silo.control.{
-  CreateGrainRequest,
-  CreateGrainResponse,
-  SearchGrainRequest,
-  SearchGrainResponse
-}
+import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, SearchGrainRequest, SearchGrainResponse}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.{ClassTag, classTag}
+import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
 object OrleansRuntime {
@@ -59,9 +55,10 @@ class OrleansRuntime(private val host: String,
   val MASTER_ID: String = "master"
   val master: GrainRef = GrainRef(MASTER_ID, host, port)
 
-  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] = {
-    val tag = classTag[G]
-    (master ? CreateGrainRequest(tag)).flatMap {
+  def createGrain[G <: Grain: ClassTag : TypeTag](): Future[GrainRef] = {
+    val ct = classTag[G]
+    val tt = typeTag[G]
+    (master ? CreateGrainRequest(ct, tt)).flatMap {
       case value: CreateGrainResponse =>
         Future.successful(GrainRef(value.id, value.address, value.port))
       case _ =>

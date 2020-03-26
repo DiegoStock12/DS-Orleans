@@ -74,8 +74,9 @@ class MasterBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag] = {
-    val tag = classTag[T]
+  def registerGrain[T <: Grain : ClassTag : TypeTag]: MasterBuilder = {
+    val classtag = classTag[T]
+    val typetag = typeTag[T]
 
     if (this.grains.contains(classtag)) {
       logger.warn(s"${classtag.runtimeClass.getName} already registered in master.")
@@ -104,7 +105,7 @@ class MasterBuilder extends LazyLogging {
   */
 class Master(masterConfig: ServerConfig,
              val executionContext: ExecutionContext,
-             registeredGrains: List[ClassTag[_ <: Grain]] = List())
+             registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
