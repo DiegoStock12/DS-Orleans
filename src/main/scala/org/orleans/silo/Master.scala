@@ -106,7 +106,7 @@ class MasterBuilder extends LazyLogging {
 class Master(masterConfig: ServerConfig,
              val executionContext: ExecutionContext,
              registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
-    extends LazyLogging
+  extends LazyLogging
     with Runnable
     with PacketListener {
 
