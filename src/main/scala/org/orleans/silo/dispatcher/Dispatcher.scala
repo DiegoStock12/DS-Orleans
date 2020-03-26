@@ -169,29 +169,10 @@ class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
   }
 
   /**
-   * Activates the existed grain.
+   * Activates the existing grain.
    */
   def addActivation(id: String, grainTag: ClassTag[_ <: Grain]) = {
-//    val result = MongoDatabase.load[T](id)
-//    result.onComplete {
-//      case Success(value) =>
-//        logger.debug(s"Succesfully retrieved grain: $value")
-//      case Failure(e) =>
-//        logger.debug(s"Something went wrong during loading of grain ${id}. Cause: $e")
-//    }
-//
-//    // How long should we wait for he result?
-//    Await.ready(result, 1 second)
-//    MongoDatabase.close()
-//
-//    val grain : T = result
-//      .asInstanceOf[T]
-//    // Create a mailbox
-//    val mbox: Mailbox = new Mailbox(grain)
-//
-//    // Put the new grain and mailbox in the indexes so it can be found
-//    this.grainMap.put(mbox, grain)
-//    this.messageReceiver.mailboxIndex.put(id, mbox)
+
   }
 
   /**

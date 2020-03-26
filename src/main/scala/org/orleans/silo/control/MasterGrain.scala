@@ -58,6 +58,7 @@ class MasterGrain(_id: String, master: Master)
       else {
         logger.warn("No active grain.")
         // Activate grain
+        // Chose grain with least total load
         val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
         val slaveRef = GrainRef(info.uuid, info.host, 1600)
 

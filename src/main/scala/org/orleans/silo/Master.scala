@@ -374,6 +374,9 @@ class Master(masterConfig: ServerConfig,
   }
 
 
+  /**
+   * Calculates the loads of each slave as the sum of loads of each grain on a slave.
+   */
   def updateSlavesTotalLoad(): Unit = {
     for ((k, v) <- this.slaves) {
       var totalLoad: Int = 0
