@@ -132,6 +132,16 @@ class MongoGrainDatabase(databaseName: String) extends GrainDatabase with LazyLo
     }
   }
 
+
+  override def contains(id: String): Boolean = {
+    val observable: SingleObservable[Document] = grainCollection.find(equal("_id", id)).first()
+
+    Await.result(observable.toFuture(), 5 seconds) match {
+      case null => false
+      case document: Document if document != null => true
+    }
+  }
+
   /**
     * Closes the connection with the database.
     */
