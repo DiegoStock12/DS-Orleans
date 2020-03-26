@@ -16,14 +16,16 @@ import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
-object MongoDatabase extends GrainDatabase with LazyLogging {
+class MongoGrainDatabase(databaseName: String) extends GrainDatabase with LazyLogging {
   // Set the log level for mongodb to ERROR
   LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
 
   private val connectionString: String = "mongodb://ds-orleans:SaFBNMjzP9CMLt@167.172.42.150:27017/"
   lazy private val client = MongoClient(connectionString)
-  lazy private val database: MongoDatabase = client.getDatabase("grains")
-  lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grain")
+  lazy private val database: MongoDatabase = client.getDatabase(databaseName)
+  lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grains")
+
+
 
   def setMongoLogLevel(level: Level): Unit = {
     LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(level)

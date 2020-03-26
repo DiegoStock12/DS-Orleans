@@ -24,7 +24,9 @@ object DatabaseConnectionTest extends LazyLogging {
   def main(args: Array[String]): Unit = {
     val grain = new TestGrain("1013")
 
-    val storeResult = MongoDatabase.store(grain)
+    val mongo = new MongoGrainDatabase("test")
+
+    val storeResult = mongo.store(grain)
     storeResult.onComplete {
       case Success(value) =>
         if (value.isEmpty) {
@@ -39,7 +41,7 @@ object DatabaseConnectionTest extends LazyLogging {
 
     Await.ready(storeResult, 10 seconds)
 
-    val result = MongoDatabase.load[TestGrain]("1012")
+    val result = mongo.load[TestGrain]("1012")
     result.onComplete {
       case Success(value) =>
         logger.debug(s"Succesfully retrieved grain: $value")
@@ -49,7 +51,7 @@ object DatabaseConnectionTest extends LazyLogging {
 
     Await.ready(result, 10 seconds)
 
-    MongoDatabase.close()
+    mongo.close()
   }
 
 }

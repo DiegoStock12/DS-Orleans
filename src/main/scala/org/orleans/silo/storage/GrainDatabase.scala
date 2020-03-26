@@ -1,13 +1,22 @@
 package org.orleans.silo.storage
 
+import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
-object GrainDatabase {
-  lazy val instance: GrainDatabase = MongoDatabase
+object GrainDatabase extends LazyLogging {
+  private var applicationName: String = _
+  lazy val instance: GrainDatabase = new MongoGrainDatabase(applicationName)
+  def setApplicationName(name: String) = {
+    if (applicationName != null) {
+      logger.error("Can't set application name twice")
+    } else {
+      applicationName = name
+    }
+  }
 }
 
 trait GrainDatabase {
