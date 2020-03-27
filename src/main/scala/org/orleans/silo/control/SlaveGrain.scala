@@ -62,13 +62,13 @@ class SlaveGrain(_id: String, slave: Slave)
   def processGrainCreation[T <: Grain: ClassTag: TypeTag](
       request: CreateGrainRequest[T],
       sender: Sender) = {
-    logger.info(
+    logger.debug(
       s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
 
     // If there exists a dispatcher for that grain just add it
     if (slave.registeredGrains.contains(
           Tuple2(request.grainClass, request.grainType))) {
-      logger.info(s"Found existing dispatcher for class")
+      logger.debug(s"Found existing dispatcher for class")
 
       // Add the grain to the dispatcher
       val dispatcher: Dispatcher[T] = slave.dispatchers
@@ -78,7 +78,7 @@ class SlaveGrain(_id: String, slave: Slave)
         .head
         .asInstanceOf[Dispatcher[T]]
 
-      logger.info(s"grainType: ${request.grainType} typetag: $typeTag")
+      logger.debug(s"grainType: ${request.grainType} typetag: $typeTag")
 
       // Get the ID for the newly created grain
       // It is necessary to add the typeTag here because the dispacther type is eliminated by type erasure

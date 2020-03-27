@@ -83,7 +83,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
     val mbox: Mailbox = new Mailbox(grain)
 
     // Store the new grain to persistant storage
-    logger.info(s"Type of grain: $typeTag")
+    logger.debug(s"Type of grain: $typeTag")
     GrainDatabase.instance.store(grain)(classTag, typeTag)
 
     // Put the new grain and mailbox in the indexes so it can be found

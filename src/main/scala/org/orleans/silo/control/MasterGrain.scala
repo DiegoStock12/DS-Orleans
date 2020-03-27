@@ -22,7 +22,9 @@ class MasterGrain(_id: String, master: Master)
     extends Grain(_id)
     with LazyLogging {
 
-  var slaveRefs: Circular[(SlaveInfo, GrainRef)] = null
+  private var slaveRefs: Circular[(SlaveInfo, GrainRef)] = null
+  private var slaveGrainRefs: ConcurrentHashMap[String, GrainRef] =
+    new ConcurrentHashMap[String, GrainRef]()
 
   logger.info("MASTER GRAIN RUNNING!")
 
@@ -48,7 +50,7 @@ class MasterGrain(_id: String, master: Master)
       processGrainSearch(request, sender)
 
     case (request: CreateGrainRequest[_], sender: Sender) =>
-      logger.info("Master grain handling create grain request")
+      logger.debug("Master grain handling create grain request")
       processCreateGrain(request, sender)
 
     case (request: DeleteGrainRequest, _) =>
@@ -85,7 +87,14 @@ class MasterGrain(_id: String, master: Master)
         // Chose grain with least total load
         val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
           if (x.totalLoad < y.totalLoad) x else y)
-        val slaveRef = GrainRef(info.uuid, info.host, 1600)
+
+        var slaveRef: GrainRef = null
+        if (!slaveGrainRefs.containsKey(info)) {
+          slaveRef = GrainRef(info.uuid, info.host, info.tcpPort)
+          slaveGrainRefs.put(info.uuid, slaveRef)
+        } else {
+          slaveRef = slaveGrainRefs.get(info)
+        }
 
       }
     } else {
@@ -102,10 +111,18 @@ class MasterGrain(_id: String, master: Master)
     */
   private def processCreateGrain(request: CreateGrainRequest[_],
                                  sender: Sender): Unit = {
+
     // Now get the least loaded slave
     val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
       if (x.totalLoad < y.totalLoad) x else y)
-    val slaveRef = GrainRef(info.uuid, info.host, info.tcpPort)
+
+    var slaveRef: GrainRef = null
+    if (!slaveGrainRefs.containsKey(info.uuid)) {
+      slaveRef = GrainRef(info.uuid, info.host, info.tcpPort)
+      slaveGrainRefs.put(info.uuid, slaveRef)
+    } else {
+      slaveRef = slaveGrainRefs.get(info.uuid)
+    }
 
     val f: Future[Any] = slaveRef ? request
     f onComplete {
@@ -143,8 +160,16 @@ class MasterGrain(_id: String, master: Master)
       val grainInfos: List[GrainInfo] = master.grainMap.get(id)
       grainInfos.foreach(grainInfo => {
         // Send deletion request
-        val slaveRef: GrainRef =
-          GrainRef(grainInfo.slave, grainInfo.address, grainInfo.port)
+        var slaveRef: GrainRef = null
+
+        if (!slaveGrainRefs.containsKey(grainInfo.slave)) {
+          slaveRef = GrainRef(grainInfo.slave,
+                              grainInfo.address,
+                              master.slaves.get(grainInfo.slave).get.tcpPort)
+          slaveGrainRefs.put(grainInfo.slave, slaveRef)
+        } else {
+          slaveRef = slaveGrainRefs.get(grainInfo.slave)
+        }
 
         // Send request to the slave
         slaveRef ! request

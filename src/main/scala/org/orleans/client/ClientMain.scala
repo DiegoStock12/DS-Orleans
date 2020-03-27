@@ -76,6 +76,9 @@ object ClientMain {
 
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
     println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
 //    time = System.currentTimeMillis()
 //    val twitterWouter: TwitterAcountRef =
 //      Await
