@@ -84,8 +84,6 @@ private[dispatcher] class Mailbox(val grain: Grain)
       val msg: Message = inbox.poll()
       if (msg == null) return
       grain.receive((msg.msg, msg.sender))
-      logger.debug(
-        s"Increasing the counter for messages processed for grain: ${id}")
       val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
       registry.addRequestHandled()
     }

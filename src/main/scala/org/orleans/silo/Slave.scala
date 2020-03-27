@@ -196,6 +196,9 @@ class Slave(val slaveConfig: ServerConfig,
     }
   }
 
+  /**
+    * Returns a free port that hasn't been used by any of the grains.
+    */
   def getFreePort: Int = {
     val portsLeft = slaveConfig.grainPorts.diff(portsUsed)
 
@@ -257,7 +260,7 @@ class Slave(val slaveConfig: ServerConfig,
       verifyMasterAlive()
 
       // Now time to sleep :)
-      Thread.sleep(100)
+      Thread.sleep(SLEEP_TIME)
     }
   }
 
@@ -288,7 +291,10 @@ class Slave(val slaveConfig: ServerConfig,
     for (i <- 1 to protocol.connectionAttempts) {
       // Send a handshake and wait for a bit.
       val handshake =
-        new Packet(PacketType.HANDSHAKE, this.uuid, System.currentTimeMillis())
+        new Packet(PacketType.HANDSHAKE,
+                   this.uuid,
+                   System.currentTimeMillis(),
+                   List(slaveConfig.tcpPort.toString))
       packetManager.send(handshake, masterConfig.host, masterConfig.udpPort)
       Thread.sleep(protocol.connectionDelay)
 
@@ -395,7 +401,10 @@ class Slave(val slaveConfig: ServerConfig,
 
     // Store slaveInfo from data in packet.
     slaves.put(packet.uuid,
-               SlaveInfo(packet.uuid, packet.data(0), packet.data(1).toInt))
+               SlaveInfo(packet.uuid,
+                         packet.data(0),
+                         packet.data(1).toInt,
+                         packet.data(2).toInt))
     logger.debug(
       s"Added new slave ${protocol.shortUUID(packet.uuid)} to local hashtable.")
   }

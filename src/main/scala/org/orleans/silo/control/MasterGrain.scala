@@ -1,12 +1,14 @@
 package org.orleans.silo.control
 
+import java.util.concurrent.ConcurrentHashMap
+
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.{GrainInfo, Master}
 import org.orleans.silo.Services.Grain.{Grain, GrainRef}
 import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
 import org.orleans.silo.dispatcher.Sender
-import org.orleans.silo.utils.GrainState
+import org.orleans.silo.utils.{Circular, GrainState}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -17,10 +19,20 @@ class MasterGrain(_id: String, master: Master)
     extends Grain(_id)
     with LazyLogging {
 
-  var info: SlaveInfo = null
-  var slaveRef: GrainRef = null
+  var slaveRefs: Circular[(SlaveInfo, GrainRef)] = null
 
   logger.info("MASTER GRAIN RUNNING!")
+
+  def roundRobin(): (SlaveInfo, GrainRef) = {
+    if (slaveRefs == null) {
+      slaveRefs = new Circular(
+        master.getSlaves().map(x => (x, GrainRef(x.uuid, x.host, x.tcpPort))))
+    }
+
+    val head = slaveRefs.next
+
+    (head._1, head._2)
+  }
 
   /**
     * Execution context of the master to run the futures
@@ -70,14 +82,9 @@ class MasterGrain(_id: String, master: Master)
                                  sender: Sender): Unit = {
     // TODO look for the least loaded slave
     // Now get the only slave
-    if (info == null && slaveRef == null) {
-      info = master.slaves.head._2
-      slaveRef = GrainRef(info.uuid, info.host, 1600)
-    }
+    val (info, slaveRef) = roundRobin()
 
     val f: Future[Any] = slaveRef ? request
-    // Await result
-    Await.result(f, 5 seconds)
     f onComplete {
       case Success(resp: CreateGrainResponse) =>
         // Create the grain info and put it in the grainMap

@@ -15,7 +15,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
-
+import collection.JavaConverters._
 object GrainRef extends LazyLogging {
   def apply(id: String, address: String, port: Int): GrainRef =
     new GrainRef(id, address, port)
@@ -42,7 +42,7 @@ class GrainRef private (val id: String, val address: String, val port: Int)
   private var connectionOpened = false
 
   private val expectedMessages: ConcurrentHashMap[String, Promise[Any]] =
-    new ConcurrentHashMap[String, Promise[Any]](100)
+    new ConcurrentHashMap[String, Promise[Any]]()
 
   /**
     * Send the request to the grain without waiting for a response
@@ -109,7 +109,14 @@ class GrainRef private (val id: String, val address: String, val port: Int)
         if (expectedMessages.size() == 0) {
           logger.warn(s"Received an message that wasn't expected: ${incoming}.")
         } else {
-          expectedMessages.get(incoming._1).success(incoming._2)
+          if (expectedMessages.containsKey(incoming._1)) {
+            expectedMessages.get(incoming._1).success(incoming._2)
+            expectedMessages.remove(incoming._1)
+          } else {
+            logger.warn(
+              s"Received an message that wasn't expected: ${incoming}.")
+          }
+
         }
       } catch {
         case exception: IOException => {

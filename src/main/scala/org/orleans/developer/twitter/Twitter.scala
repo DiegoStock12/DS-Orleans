@@ -18,9 +18,10 @@ class Twitter(id: String) extends Grain(id) {
         sender ! TwitterFailure("User already exists.")
       }
     }
-    case (user: UserCreate, _) => //Add user here
+    case (user: UserCreate, sender: Sender) => //Add user here
       //println(s"Added user ${user.username}")
       accounts = Map(user.username -> user.ref) ++ accounts
+      sender ! TwitterSuccess()
     case (user: UserGet, sender: Sender) => {
       if (accounts.get(user.username).isDefined) {
         sender ! UserRetrieve(accounts.get(user.username).get)

@@ -17,36 +17,18 @@ class TwitterRef extends GrainReference {
         val grain = OrleansRuntime
           .createGrain[TwitterAccount, TwitterAcountRef](masterRef)
 
-        grain andThen {
-          case Success(x: TwitterAcountRef) =>
-            grainRef ! UserCreate(username, x.grainRef.id)
-          case Failure(exp) => println(exp.getMessage)
+        grain flatMap {
+          case x: TwitterAcountRef =>
+            (grainRef ? UserCreate(username, x.grainRef.id)).flatMap {
+              case TwitterSuccess() => grain
+            }
         } andThen {
           case _ => grain
         }
       }
       case TwitterFailure(msg) =>
-        Future.failed(new IllegalArgumentException(msg))
+        Future.failed(new IllegalArgumentException(s"$username: $msg"))
     }
-
-//    (grainRef ? UserExists(username)).andThen {
-//      case TwitterSuccess() => {
-//        val grain: Future[TwitterAcountRef] = OrleansRuntime
-//          .createGrain[TwitterAccount, TwitterAcountRef](masterRef)
-//        grain.map {
-//          case ref: TwitterAcountRef => {
-//            println("Now creating the user in the TwitterGrain.")
-//            grainRef ! UserCreate(username, ref.grainRef.id)
-//          }
-//          case e: Throwable =>
-//            Future.failed(e)
-//        }
-//
-//        return grain
-//      }
-//      case TwitterFailure(msg) =>
-//        Future.failed(new IllegalArgumentException(msg))
-//    }
     userFlatmap
   }
 
@@ -59,7 +41,7 @@ class TwitterRef extends GrainReference {
         )
       }
       case TwitterFailure(msg: String) =>
-        Future.failed(new IllegalArgumentException(msg))
+        Future.failed(new IllegalArgumentException(s"$username: $msg"))
     }
   }
 

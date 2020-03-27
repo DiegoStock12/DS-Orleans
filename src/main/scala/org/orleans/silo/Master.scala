@@ -126,6 +126,7 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
+  // Dispatchers and ports used.
   var dispatchers: List[Dispatcher[_ <: Grain]] = List()
   private var portsUsed: Set[Int] = Set()
 
@@ -165,6 +166,9 @@ class Master(masterConfig: ServerConfig,
     mainDispatcherThread.start()
   }
 
+  /**
+    * Returns a free port that hasn't been used by any of the grains.
+    */
   def getFreePort: Int = {
     val portsLeft = masterConfig.grainPorts.diff(portsUsed)
 
@@ -216,7 +220,7 @@ class Master(masterConfig: ServerConfig,
   def notifyAllSlaves(packet: Packet, except: List[String] = List()): Unit = {
     for ((_, slaveInfo) <- slaves) {
       if (!except.contains(slaveInfo.uuid)) {
-        packetManager.send(packet, slaveInfo.host, slaveInfo.port)
+        packetManager.send(packet, slaveInfo.host, slaveInfo.udpPort)
       }
     }
   }
@@ -276,25 +280,31 @@ class Master(masterConfig: ServerConfig,
     * @param host   The host receiving from.
     * @param port   The port receiving from.
     */
-  def processHandshake(packet: Packet, host: String, port: Int): Unit = {
+  def processHandshake(packet: Packet, host: String, udpPort: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
     if (slaves.contains(packet.uuid)) return
     logger.debug(s"Adding new slave to the cluster.")
 
     // First we add it to the slaves table.
-    val slaveInfo = SlaveInfo(packet.uuid, host, port, packet.timestamp)
+    val slaveInfo = SlaveInfo(packet.uuid,
+                              host,
+                              udpPort,
+                              packet.data(0).toInt,
+                              packet.timestamp)
     slaves.put(slaveInfo.uuid, slaveInfo)
 
     // Then we send the slave its welcome packet :)
     val welcome =
       Packet(PacketType.WELCOME, this.uuid, System.currentTimeMillis())
-    packetManager.send(welcome, host, port)
+    packetManager.send(welcome, host, udpPort)
 
     // And send all other slaves in the cluster there is a new slave.
     val new_slave = Packet(PacketType.SLAVE_CONNECT,
                            slaveInfo.uuid,
                            System.currentTimeMillis(),
-                           List(slaveInfo.host, slaveInfo.port.toString))
+                           List(slaveInfo.host,
+                                slaveInfo.udpPort.toString,
+                                slaveInfo.tcpPort.toString))
     notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
 
     // Finally send this slave awareness of all other slaves.
@@ -304,9 +314,12 @@ class Master(masterConfig: ServerConfig,
           PacketType.SLAVE_CONNECT,
           otherSlaveInfo.uuid,
           System.currentTimeMillis(),
-          List(otherSlaveInfo.host, otherSlaveInfo.port.toString))
+          List(otherSlaveInfo.host,
+               otherSlaveInfo.udpPort.toString,
+               otherSlaveInfo.tcpPort.toString)
+        )
 
-        packetManager.send(slavePacket, host, port)
+        packetManager.send(slavePacket, host, udpPort)
       }
     }
 
@@ -347,7 +360,7 @@ class Master(masterConfig: ServerConfig,
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    //logger.warn(s"Processing load data: ${packet.data}")
+    logger.debug(s"Processing load data: ${packet.data}")
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
@@ -362,14 +375,14 @@ class Master(masterConfig: ServerConfig,
               this.grainMap.replace(id, newGrainInfo)
             }
           } else {
-            //logger.warn(
-            // "Slave reports about grain that master doesn't know about.")
+            logger.debug(
+              "Slave reports about grain that master doesn't know about.")
           }
         }
         case _ => logger.warn("Couldn't parse packet with metrics.")
       }
     }
-    //logger.warn(s"${this.grainMap}")
+    logger.debug(s"${this.grainMap}")
   }
 
   /**

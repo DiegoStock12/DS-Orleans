@@ -13,6 +13,7 @@ import org.orleans.silo.metrics.{Registry, RegistryFactory}
 
 import collection.JavaConverters._
 
+/** Cleans client threads that haven't been running for a while. **/
 class ClientCleanup(clientSockets: util.List[MessageReceiver])
     extends TimerTask
     with LazyLogging {
@@ -49,23 +50,23 @@ class ClientReceiver[T <: Grain: ClassTag](
   // Create the socket
   val requestSocket: ServerSocket = new ServerSocket(port)
 
+  // Create the timer.
   val timer: Timer = new Timer(
     s"ClientCleaner - ${classTag[T].runtimeClass.getSimpleName}")
 
-  //List of
+  //List of all clients sending/listening for this Grain type.
   val clientSockets: util.List[MessageReceiver] =
     Collections.synchronizedList(new util.ArrayList[MessageReceiver]())
 
   val SLEEP_TIME: Int = 5
   var running: Boolean = true
 
-  // TODO this could be multithreaded but might be too much overload
   /**
-    * While true receive messages and put them in the appropriate mailbox
+    * While true accept new clients and start their messages thread.
     */
   override def run(): Unit = {
     logger.info(s"Client-Receiver started for ${classTag[T]} on port $port")
-
+    // Clean threads after a while.
     timer.scheduleAtFixedRate(new ClientCleanup(clientSockets), 0, 1000)
 
     while (running) {
@@ -80,6 +81,7 @@ class ClientReceiver[T <: Grain: ClassTag](
           return //socket is probably closed, we can exit this method.
       }
 
+      // Create new client when
       val messageReceiver = new MessageReceiver(mailboxIndex, clientSocket)
       val mRecvThread: Thread = new Thread(messageReceiver)
       logger.info(s"Message-Receiver started on ${clientSocket.getPort}.")

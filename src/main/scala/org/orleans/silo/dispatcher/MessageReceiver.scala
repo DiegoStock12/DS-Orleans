@@ -46,26 +46,20 @@ class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbox],
         }
       }
       // Match the request we just received
-      // logger.info("received a new request!!!")
       request match {
         // We'll be expecting something like this
         case ((requestId: String, grainId: String, msg: Any)) =>
-          //logger.info(
-          //  s"Received message from ${clientSocket.getInetAddress}: ${clientSocket.getPort}")
-          logger.debug(s"Message = ($grainId,$msg)")
           if (this.mailboxIndex.containsKey(grainId)) {
             // Add a message to the queue
             this.mailboxIndex
               .get(grainId)
               .addMessage(Message(grainId, msg, Sender(oos, requestId)))
-            //logger.info(
-            //  s"Increasing the counter for messages received for grain: ${id}")
             val registry: Registry =
               RegistryFactory.getOrCreateRegistry(grainId)
             registry.addRequestReceived()
           } else {
             logger.error(s"Not existing mailbox for ID $grainId")
-            this.mailboxIndex.forEach((k, v) => logger.info(s"$k --> $v"))
+            this.mailboxIndex.forEach((k, v) => logger.error(s"$k --> $v"))
 
           }
         case _ =>
