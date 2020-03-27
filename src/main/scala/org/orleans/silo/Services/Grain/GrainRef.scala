@@ -45,6 +45,9 @@ class GrainRef private (val id: String, val address: String, val port: Int)
   private val expectedMessages: ConcurrentHashMap[String, Promise[Any]] =
     new ConcurrentHashMap[String, Promise[Any]]()
 
+  private val unExpectedMessages: ConcurrentHashMap[String, Any] =
+    new ConcurrentHashMap[String, Any]()
+
   /**
     * Send the request to the grain without waiting for a response
     *
@@ -108,16 +111,26 @@ class GrainRef private (val id: String, val address: String, val port: Int)
         incoming = inStream.readObject().asInstanceOf[(String, Any)]
 
         if (expectedMessages.size() == 0) {
-          logger.warn(s"Received an message that wasn't expected: ${incoming}.")
+          unExpectedMessages.put(incoming._1, incoming._2)
+          logger.warn(
+            s"Received an message that wasn't expected (empty list): ${incoming}.")
         } else {
           if (expectedMessages.containsKey(incoming._1)) {
             expectedMessages.get(incoming._1).success(incoming._2)
             expectedMessages.remove(incoming._1)
           } else {
+            unExpectedMessages.put(incoming._1, incoming._2)
             logger.warn(
               s"Received an message that wasn't expected: ${incoming}.")
           }
 
+          for (message: String <- unExpectedMessages.keys().asScala.toList) {
+            if (expectedMessages.containsKey(incoming._1)) {
+              expectedMessages.get(incoming._1).success(incoming._2)
+              expectedMessages.remove(incoming._1)
+              unExpectedMessages.remove(message)
+            }
+          }
         }
       } catch {
         case exception: IOException => {
