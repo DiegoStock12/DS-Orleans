@@ -13,20 +13,19 @@ class Twitter(id: String) extends Grain(id) {
       if (accounts
             .get(user.username)
             .isEmpty) {
-        sender ! Success()
+        sender ! TwitterSuccess()
       } else {
-        println("Lol this user already exists")
-        sender ! Failure("User already exists.")
+        sender ! TwitterFailure("User already exists.")
       }
     }
     case (user: UserCreate, _) => //Add user here
-      println(s"User is added ${user.username}")
+      //println(s"Added user ${user.username}")
       accounts = Map(user.username -> user.ref) ++ accounts
     case (user: UserGet, sender: Sender) => {
       if (accounts.get(user.username).isDefined) {
         sender ! UserRetrieve(accounts.get(user.username).get)
       } else {
-        sender ! Failure("Username doesn't exist.")
+        sender ! TwitterFailure("Username doesn't exist.")
       }
     }
   }

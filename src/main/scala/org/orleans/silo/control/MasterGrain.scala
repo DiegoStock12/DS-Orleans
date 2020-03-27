@@ -17,6 +17,9 @@ class MasterGrain(_id: String, master: Master)
     extends Grain(_id)
     with LazyLogging {
 
+  var info: SlaveInfo = null
+  var slaveRef: GrainRef = null
+
   logger.info("MASTER GRAIN RUNNING!")
 
   /**
@@ -26,15 +29,15 @@ class MasterGrain(_id: String, master: Master)
 
   override def receive: Receive = {
     case (request: SearchGrainRequest, sender: Sender) =>
-      logger.info("Master grain handling grain search request")
+      logger.debug("Master grain handling grain search request")
       processGrainSearch(request, sender)
 
     case (request: CreateGrainRequest, sender: Sender) =>
-      logger.info("Master grain handling create grain request")
+      logger.debug("Master grain handling create grain request")
       processCreateGrain(request, sender)
 
     case (request: DeleteGrainRequest, _) =>
-      logger.info("Master handling delete grain request")
+      logger.debug("Master handling delete grain request")
       processDeleteGrain(request)
 
   }
@@ -67,8 +70,10 @@ class MasterGrain(_id: String, master: Master)
                                  sender: Sender): Unit = {
     // TODO look for the least loaded slave
     // Now get the only slave
-    val info: SlaveInfo = master.slaves.head._2
-    val slaveRef = GrainRef(info.uuid, info.host, 1600)
+    if (info == null && slaveRef == null) {
+      info = master.slaves.head._2
+      slaveRef = GrainRef(info.uuid, info.host, 1600)
+    }
 
     val f: Future[Any] = slaveRef ? request
     // Await result
@@ -76,7 +81,7 @@ class MasterGrain(_id: String, master: Master)
     f onComplete {
       case Success(resp: CreateGrainResponse) =>
         // Create the grain info and put it in the grainMap
-        logger.info(s"Received response from the server! $resp")
+        logger.debug(s"Received response from a client! $resp")
         val grainInfo =
           GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
         master.grainMap.put(resp.id, grainInfo)
@@ -85,6 +90,7 @@ class MasterGrain(_id: String, master: Master)
         sender ! resp
 
       case Failure(exception) =>
+        sender ! CreateGrainFailure(exception.getMessage)
         logger.error(
           s"Exeception occurred while processing create grain" +
             s" ${exception.printStackTrace()}")

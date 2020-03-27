@@ -31,7 +31,7 @@ class SlaveGrain(_id: String, slave: Slave)
 
     // Process creation requests
     case (request: CreateGrainRequest, sender: Sender) =>
-      logger.info("Slave grain processing grain creation request")
+      logger.debug("Slave grain processing grain creation request")
       processGrainCreation(request, sender)(request.grainClass)
 
     // Process deletion requests
@@ -55,13 +55,13 @@ class SlaveGrain(_id: String, slave: Slave)
     */
   def processGrainCreation[T <: Grain: ClassTag](request: CreateGrainRequest,
                                                  sender: Sender): Unit = {
-    logger.info(
+    logger.debug(
       s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
     // If there exists a dispatcher for that grain just add it
     if (slave.registeredGrains.contains(request.grainClass.runtimeClass) || !slave.dispatchers
           .filter(_.getType() == classTag[T])
           .isEmpty) {
-      logger.info(s"Found existing dispatcher for class")
+      logger.debug(s"Found existing dispatcher for class.")
 
       // Add the grain to the dispatcher
       val dispatcher: Dispatcher[T] = slave.dispatchers
@@ -71,13 +71,11 @@ class SlaveGrain(_id: String, slave: Slave)
         .head
         .asInstanceOf[Dispatcher[T]]
 
-      println(dispatcher.getType())
-
       // Get the ID for the newly created grain
       val id = dispatcher.addGrain()
 
       // Add it to the grainMap
-      logger.info(s"Adding to the slave grainmap id $id")
+      logger.debug(s"Adding to the slave grainmap id $id")
       slave.grainMap.put(id, classTag[T])
 
       sender ! CreateGrainResponse(id, slave.slaveConfig.host, dispatcher.port)
@@ -85,7 +83,7 @@ class SlaveGrain(_id: String, slave: Slave)
       // If there's not a dispatcher for that grain type
       // create the dispatcher and add the grain
     } else {
-      logger.info(
+      logger.debug(
         s"Creating new dispatcher for class ${request.grainClass.runtimeClass}")
       // Create a new dispatcher for that and return its properties
       val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
@@ -100,7 +98,7 @@ class SlaveGrain(_id: String, slave: Slave)
       newDispatcherThread.start()
 
       // Add it to the grainMap
-      logger.info(s"Adding to the slave grainmap id $id")
+      logger.debug(s"Adding to the slave grainmap id $id")
       slave.grainMap.put(id, classTag[T])
 
       // Return the newly created information

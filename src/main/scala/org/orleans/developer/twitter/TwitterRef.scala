@@ -5,33 +5,49 @@ import org.orleans.silo.Services.Grain.{GrainRef, GrainReference}
 
 import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class TwitterRef extends GrainReference {
-  def createAccount(username: String): Future[Try[TwitterAcountRef]] = {
+  def createAccount(username: String): Future[_] = {
     // First we try check if the username already exists,
     // then if not we create a new grain of type TwitterAccount.
-    (grainRef ? UserExists(username)).flatMap {
-      case Success() => {
+    val userExists = (grainRef ? UserExists(username))
+    val userFlatmap = userExists.flatMap {
+      case TwitterSuccess() => {
         val grain = OrleansRuntime
           .createGrain[TwitterAccount, TwitterAcountRef](masterRef)
 
-        grain.onComplete {
-          case scala.util.Success(ref: TwitterAcountRef) => {
-            println("Now creating the user in the TwitterGrain.")
-            grainRef ! UserCreate(username, ref.grainRef.id)
-          }
-          case scala.util.Failure(e) =>
-            Future.failed(new IllegalArgumentException(e))
+        grain andThen {
+          case Success(x: TwitterAcountRef) =>
+            grainRef ! UserCreate(username, x.grainRef.id)
+          case Failure(exp) => println(exp.getMessage)
+        } andThen {
+          case _ => grain
         }
-
-        mapValue(grain)
       }
-      case Failure(msg: String) => {
-        println("HERE NOW")
+      case TwitterFailure(msg) =>
         Future.failed(new IllegalArgumentException(msg))
-      }
     }
+
+//    (grainRef ? UserExists(username)).andThen {
+//      case TwitterSuccess() => {
+//        val grain: Future[TwitterAcountRef] = OrleansRuntime
+//          .createGrain[TwitterAccount, TwitterAcountRef](masterRef)
+//        grain.map {
+//          case ref: TwitterAcountRef => {
+//            println("Now creating the user in the TwitterGrain.")
+//            grainRef ! UserCreate(username, ref.grainRef.id)
+//          }
+//          case e: Throwable =>
+//            Future.failed(e)
+//        }
+//
+//        return grain
+//      }
+//      case TwitterFailure(msg) =>
+//        Future.failed(new IllegalArgumentException(msg))
+//    }
+    userFlatmap
   }
 
   def getAccount(username: String): Future[Try[TwitterAcountRef]] = {
@@ -42,7 +58,7 @@ class TwitterRef extends GrainReference {
             .getGrain[TwitterAccount, TwitterAcountRef](grainId, masterRef)
         )
       }
-      case Failure(msg: String) =>
+      case TwitterFailure(msg: String) =>
         Future.failed(new IllegalArgumentException(msg))
     }
   }

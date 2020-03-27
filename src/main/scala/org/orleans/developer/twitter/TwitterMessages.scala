@@ -11,7 +11,7 @@ object TwitterMessages {
   case class Tweet(msg: String, timestamp: String)
   case class FollowUser(id: String)
 
-  case class Success()
-  case class Failure(failure: String)
+  case class TwitterSuccess()
+  case class TwitterFailure(failure: String)
 
 }
