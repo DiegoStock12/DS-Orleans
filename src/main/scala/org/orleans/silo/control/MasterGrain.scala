@@ -139,7 +139,7 @@ class MasterGrain(_id: String, master: Master)
   }
 
   //TODO Decide when the salve deactivates the grain and send update state message
-  private def processUpdateState(request: UpdateGrainStateRequest, sender: Sender): Unit = {
+  private def processUpdateState(request: UpdateGrainStateRequest): Unit = {
     logger.debug(s"Updating state of the grain ${request.id}.")
     val newState: GrainState = GrainState.withNameWithDefault(request.state)
     val slave: String = request.source
