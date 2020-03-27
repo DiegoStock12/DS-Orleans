@@ -5,3 +5,5 @@ HelloWorld*
 .idea/
 
 target/
+
+src/main/resources/MongodbConnection
