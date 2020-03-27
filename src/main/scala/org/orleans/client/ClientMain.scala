@@ -1,5 +1,4 @@
 package org.orleans.client
-import main.scala.org.orleans.client.OrleansRuntime
 import org.orleans.developer.twitter.TwitterMessages.{UserCreate, UserExists}
 import org.orleans.developer.twitter.{
   Twitter,

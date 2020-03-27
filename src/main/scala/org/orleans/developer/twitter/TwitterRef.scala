@@ -1,5 +1,5 @@
 package org.orleans.developer.twitter
-import main.scala.org.orleans.client.OrleansRuntime
+import org.orleans.client.OrleansRuntime
 import org.orleans.developer.twitter.TwitterMessages._
 import org.orleans.silo.Services.Grain.{GrainRef, GrainReference}
 
