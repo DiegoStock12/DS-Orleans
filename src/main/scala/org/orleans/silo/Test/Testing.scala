@@ -15,17 +15,27 @@ object Testing {
   def main(args: Array[String]): Unit = {
     println("Trying to get the socket")
 
-    var id: String = "initial value"
+    var id: String = ""
+
+    val classtag = classTag[GreeterGrain]
+    val typetag = typeTag[GreeterGrain]
 
     // The master grain in the master has ID "master" so it's easy to find!
     val g = GrainRef("master", "localhost", 1400)
     // Get the grain reference
 //    val g = GrainRef("b01ed5f3-96eb-45ea-8eea-53e383e8c2f6", "localhost", 1400)
 //    val g = GrainRef("1234", "localhost", 1400)
-    println("Sending request")
-    val classtag = classTag[GreeterGrain]
-    val typetag = typeTag[GreeterGrain]
-    println(classtag)
+
+    // Try to search for a grain that is deactivated
+    g ? SearchGrainRequest("758a265f-51b9-44b7-920d-78e545a37f1b", classtag, typetag) onComplete {
+      case Success(value: SearchGrainResponse) =>
+        println("Succesfully activate persistant grain by search!")
+        println(value)
+      case Failure(exception) => exception.printStackTrace()
+    }
+    Thread.sleep(1000)
+
+
 
     // Try to create a grain
     println("Creating the grain!")
@@ -45,7 +55,7 @@ object Testing {
     var port : Int = 0
 
     // Search for a grain
-    g ? SearchGrainRequest(id, classtag) onComplete {
+    g ? SearchGrainRequest(id, classtag, typetag) onComplete {
       case Success(value: SearchGrainResponse) =>
         println(value)
         port = value.port

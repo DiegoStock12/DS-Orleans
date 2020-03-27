@@ -24,6 +24,31 @@ class SlaveGrain(_id: String, slave: Slave)
 
   logger.info("SLAVE GRAIN RUNNING!")
 
+  /**
+    * Helper method to retrieve a dispatcher of a certain type and create it if it doesn't exit yet
+    * TODO improve way of getting the dispatcher since this one gives a warning about type erasure
+    * @tparam T Type of the dispatcher that is
+    * @return Dispatcher of correct type
+    */
+  private def getOrCreateDispatcher[T <: Grain : ClassTag : TypeTag](): Dispatcher[T] = {
+    if (!slave.registeredGrains.exists(tuple => tuple._1 == classTag[T])) {
+      logger.info(s"Creating new dispatcher for class: ${typeTag}")
+      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
+      // Add the dispatchers to the dispatcher
+      slave.dispatchers = dispatcher :: slave.dispatchers
+
+      // Create and run the dispatcher Thread
+      val newDispatcherThread : Thread = new Thread(dispatcher)
+      newDispatcherThread.setName(s"Dispatcher-${slave.shortId}-${classTag[T].runtimeClass.getName}")
+      newDispatcherThread.start()
+      dispatcher
+
+    } else {
+      slave.dispatchers.filter {
+        _.isInstanceOf[Dispatcher[T]]
+      }.head.asInstanceOf[Dispatcher[T]]
+    }
+  }
 
   /**
    * Depending on the message we receive we perform
@@ -48,8 +73,8 @@ class SlaveGrain(_id: String, slave: Slave)
         slave.grainMap.forEach((k ,v) => logger.info(s"$k, $v"))
       }
 
-    case (request: ActiveGrainRequest, sender) =>
-      processGrainActivation(request)
+    case (request: ActiveGrainRequest[_], sender: Sender) =>
+      processGrainActivation(request, sender)(request.grainClass, request.grainType)
 
     case other =>
       logger.error(s"Unexpected message in the slave grain $other")
@@ -131,6 +156,23 @@ class SlaveGrain(_id: String, slave: Slave)
     dispatcher.deleteGrain(id)
   }
 
-  def processGrainActivation[T <: Grain : ClassTag](request: ActiveGrainRequest) = ???
+  /**
+    * Process the activation of a grain
+    * @param request Request containing the ID of the grain to activate, as well as the typeTag that is needed to load the grain from storage.
+    * @param sender Sender that requested the grain activation
+    * @tparam T Type of the grain that should be activated
+    */
+  def processGrainActivation[T <: Grain : ClassTag : TypeTag](request: ActiveGrainRequest[T], sender: Sender): Unit = {
+
+    val dispatcher: Dispatcher[T] = getOrCreateDispatcher[T]()
+
+    dispatcher.addGrain(typeTag)
+
+    // Add it to the grainMap
+    logger.info(s"Adding to the slave grainmap id ${request.id}")
+    slave.grainMap.put(request.id, classTag[T])
+
+    sender ! ActiveGrainResponse(slave.slaveConfig.host, dispatcher.port)
+  }
 
 }

@@ -66,9 +66,11 @@ class OrleansRuntime(private val host: String,
           new RuntimeException("Creating a grain failed."))
     }
   }
-  def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] = {
-    val tag = classTag[G]
-    (master ? SearchGrainRequest(id, tag)).flatMap {
+  def getGrain[G <: Grain: ClassTag : TypeTag](id: String): Future[GrainRef] = {
+    val ct = classTag[G]
+    val tt = typeTag[G]
+
+    (master ? SearchGrainRequest(id, ct, tt)).flatMap {
       case value: SearchGrainResponse =>
         Future.successful(GrainRef(id, value.address, value.port))
       case _ =>
