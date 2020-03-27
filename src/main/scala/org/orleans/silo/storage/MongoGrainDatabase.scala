@@ -7,21 +7,36 @@ import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Grain.Grain.Receive
+
 import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
+import scala.io.Source
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
-class MongoGrainDatabase(databaseName: String) extends GrainDatabase with LazyLogging {
-  // Set the log level for mongodb to ERROR
+object MongoGrainDatabase {
+  def loadConnectionString() = {
+    val filename = "/MongodbConnection"
+    val inputstream = getClass.getResourceAsStream(filename)
+    val connectionString = Source.fromInputStream(inputstream).getLines().next()
+    inputstream.close()
+    connectionString
+  }
+}
+
+class MongoGrainDatabase(val connectionString: String, databaseName: String) extends GrainDatabase with LazyLogging {
+
+  def this(databaseName: String) {
+    this(MongoGrainDatabase.loadConnectionString(), databaseName);
+  }
+
   LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
 
-  private val connectionString: String = "mongodb://ds-orleans:SaFBNMjzP9CMLt@167.172.42.150:27017/"
   lazy private val client = MongoClient(connectionString)
   lazy private val database: MongoDatabase = client.getDatabase(databaseName)
   lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grains")
