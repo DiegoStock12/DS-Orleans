@@ -22,7 +22,9 @@ import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.runtime.universe
 import scala.reflect.{ClassTag, _}
+import scala.reflect.runtime.universe._
 
 // Class that will serve as index for the grain map
 case class GrainInfo(slave: String,
@@ -39,7 +41,7 @@ class MasterBuilder extends LazyLogging {
 
   private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
   private var executionContext: ExecutionContext = null
-  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+  private var grains: mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
     mutable.MutableList()
 
   def setHost(hostt: String): MasterBuilder = {
@@ -72,14 +74,15 @@ class MasterBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag] = {
-    val tag = classTag[T]
+  def registerGrain[T <: Grain : ClassTag : TypeTag]: MasterBuilder = {
+    val classtag = classTag[T]
+    val typetag = typeTag[T]
 
-    if (this.grains.contains(tag)) {
-      logger.warn(s"${tag.runtimeClass.getName} already registered in master.")
+    if (this.grains.contains(classtag)) {
+      logger.warn(s"${classtag.runtimeClass.getName} already registered in master.")
     }
 
-    this.grains += classTag[T]
+    this.grains += Tuple2(classtag, typetag)
     this
   }
 
@@ -102,7 +105,7 @@ class MasterBuilder extends LazyLogging {
   */
 class Master(masterConfig: ServerConfig,
              val executionContext: ExecutionContext,
-             registeredGrains: List[ClassTag[_ <: Grain]] = List())
+             registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {

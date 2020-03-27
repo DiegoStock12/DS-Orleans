@@ -6,10 +6,14 @@ import java.util.UUID
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap, Executors, LinkedBlockingQueue, ThreadPoolExecutor, TimeUnit}
 
 import scala.reflect._
+import scala.reflect.runtime.universe._
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
+import org.orleans.silo.storage.GrainDatabase
+
+import scala.concurrent.Future
 
 
 // TODO how to deal with replicated grains that could have the same ID?
@@ -97,7 +101,7 @@ private class MessageReceiver(
  * @param port port in which the dispatcher will be waiting for requests
  * @tparam T type of the grain that the dispatcher will serve
  */
-class Dispatcher[T <: Grain : ClassTag](val port: Int)
+class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
     extends Runnable
     with LazyLogging {
 
@@ -133,7 +137,7 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
    * Creates a new grain and returns its id so it can be referenced
    * by the user and indexed by the master
    */
-  def addGrain(): String = {
+  def addGrain(implicit typeTag: TypeTag[T]): String = {
     // Create the id for the new grain
     val id: String = UUID.randomUUID().toString
     // Create a new grain of that type with the new ID
@@ -145,6 +149,10 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
     // Create a mailbox
     val mbox: Mailbox = new Mailbox(grain)
     logger.info(s"New mailbox id $id")
+
+    // Store the new grain to persistant storage
+    logger.info(s"Type of grain: $typeTag")
+    GrainDatabase.instance.store(grain)(classTag, typeTag)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
@@ -210,6 +218,11 @@ class Dispatcher[T <: Grain : ClassTag](val port: Int)
     // delete from index and delete mailbox
     logger.info(s"Deleting information for grain $id")
     this.grainMap.remove(this.messageReceiver.mailboxIndex.get(id))
+
+    // Deleting grain from database. Returned Future contains the deleted grain if successful
+    // and otherwise a Failure with the exception
+    val result: Future[T] = GrainDatabase.instance.delete[T](id)
+
     this.messageReceiver.mailboxIndex.remove(id)
   }
 

@@ -2,10 +2,12 @@ package org.orleans.silo.control
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
 
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 import scala.reflect._
 
 
@@ -29,12 +31,13 @@ class SlaveGrain(_id: String, slave: Slave)
    *
    * @return
    */
-  override def receive = {
+  override def receive: Receive = {
 
     // Process creation requests
-    case (request: CreateGrainRequest, sender: Sender) =>
-      logger.info("Slave grain processing grain creation request")
-      processGrainCreation(request, sender)(request.grainClass)
+    case (request: CreateGrainRequest[_], sender: Sender) =>
+      logger.info(s"Slave grain processing grain creation request with classtag: ${request.grainClass} and typetag:  ${request.grainType}")
+      logger.info("")
+      processGrainCreation(request, sender)(request.grainClass, request.grainType)
 
     // Process deletion requests
     case (request: DeleteGrainRequest, _) =>
@@ -44,6 +47,9 @@ class SlaveGrain(_id: String, slave: Slave)
         logger.error("ID doesn't exist in the database")
         slave.grainMap.forEach((k ,v) => logger.info(s"$k, $v"))
       }
+
+    case (request: ActiveGrainRequest, sender) =>
+      processGrainActivation(request)
 
     case other =>
       logger.error(s"Unexpected message in the slave grain $other")
@@ -55,10 +61,11 @@ class SlaveGrain(_id: String, slave: Slave)
    *
    * @param request
    */
-  def processGrainCreation[T <: Grain : ClassTag](request: CreateGrainRequest, sender: Sender): Unit = {
+  def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[T], sender: Sender) = {
     logger.info(s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
-    // If there exists a dispatcher for that grain just add it
-    if (slave.registeredGrains.contains(request.grainClass)) {
+
+  // If there exists a dispatcher for that grain just add it
+    if (slave.registeredGrains.contains(Tuple2(request.grainClass, request.grainType))) {
       logger.info(s"Found existing dispatcher for class")
 
       // Add the grain to the dispatcher
@@ -66,8 +73,11 @@ class SlaveGrain(_id: String, slave: Slave)
         _.isInstanceOf[Dispatcher[T]]
       }.head.asInstanceOf[Dispatcher[T]]
 
+      logger.info(s"grainType: ${request.grainType} typetag: $typeTag")
+
       // Get the ID for the newly created grain
-      val id = dispatcher.addGrain()
+      // It is necessary to add the typeTag here because the dispacther type is eliminated by type erasure
+      val id = dispatcher.addGrain(typeTag)
 
       // Add it to the grainMap
       logger.info(s"Adding to the slave grainmap id $id")
@@ -83,7 +93,7 @@ class SlaveGrain(_id: String, slave: Slave)
       val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
       // Add the dispatchers to the dispatcher
       slave.dispatchers = dispatcher :: slave.dispatchers
-      val id: String = dispatcher.addGrain()
+      val id: String = dispatcher.addGrain(typeTag)
 
       // Create and run the dispatcher Thread
       val newDispatcherThread : Thread = new Thread(dispatcher)
@@ -121,5 +131,6 @@ class SlaveGrain(_id: String, slave: Slave)
     dispatcher.deleteGrain(id)
   }
 
+  def processGrainActivation[T <: Grain : ClassTag](request: ActiveGrainRequest) = ???
 
 }

@@ -6,6 +6,7 @@ import org.orleans.silo.Services.Grain.{Grain, GrainRef}
 import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
 import org.orleans.silo.dispatcher.Sender
+import org.orleans.silo.storage.GrainDatabase
 import org.orleans.silo.utils.GrainState
 
 import scala.concurrent.duration._
@@ -29,7 +30,7 @@ class MasterGrain(_id: String, master: Master)
       logger.info("Master grain handling grain search request")
       processGrainSearch(request, sender)
 
-    case (request: CreateGrainRequest, sender: Sender) =>
+    case (request: CreateGrainRequest[_], sender: Sender) =>
       logger.info("Master grain handling create grain request")
       processCreateGrain(request, sender)
 
@@ -50,8 +51,12 @@ class MasterGrain(_id: String, master: Master)
     if (master.grainMap.containsKey(id)) {
       val info = master.grainMap.get(id)
       sender ! SearchGrainResponse(info.address, info.port)
-    }
-    else {
+    } else if (GrainDatabase.instance.contains(id)) {
+      // If the grain exists but is not active at the moment then run activate it on a slave
+      //TODO Create some way to active a grain on a slave from storage
+      sender ! SearchGrainResponse(null, 0)
+
+    } else {
       //TODO See how we manage exceptions in this side!
       sender ! SearchGrainResponse(null, 0)
     }
@@ -63,7 +68,7 @@ class MasterGrain(_id: String, master: Master)
    * @param request
    * @param sender
    */
-  private def processCreateGrain(request: CreateGrainRequest, sender: Sender): Unit = {
+  private def processCreateGrain(request: CreateGrainRequest[_], sender: Sender): Unit = {
     // TODO look for the least loaded slave
     // Now get the only slave
     val info: SlaveInfo = master.slaves.head._2

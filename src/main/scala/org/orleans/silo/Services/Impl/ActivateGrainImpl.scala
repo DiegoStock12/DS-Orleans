@@ -3,6 +3,7 @@ package org.orleans.silo.Services.Impl
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.activateGrain.{ActivateGrainServiceGrpc, ActivateRequest, ActivationSuccess}
+import org.orleans.silo.storage.GrainDatabase
 
 import scala.concurrent.Future
 
@@ -23,7 +24,7 @@ class ActivateGrainImpl
       Class.forName(request.name).getDeclaredConstructor().newInstance()
     val activation = newActivation.asInstanceOf[Grain]
 
-    activation.store()
+    GrainDatabase.instance.load(activation._id)
 
     val reply = ActivationSuccess(success = true)
 

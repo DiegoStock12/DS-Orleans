@@ -14,6 +14,7 @@ import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.runtime.universe._
 import scala.reflect.{ClassTag, classTag}
 
 object Slave {
@@ -27,7 +28,7 @@ class SlaveBuilder extends LazyLogging {
   private var masterConfig: ServerConfig = ServerConfig("", 0, 0)
 
   private var executionContext: ExecutionContext = null
-  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+  private var grains: mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
     mutable.MutableList()
 
   def setHost(hostt: String): SlaveBuilder = {
@@ -75,14 +76,15 @@ class SlaveBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag] = {
-    val tag = classTag[T]
+  def registerGrain[T <: Grain: ClassTag : TypeTag] = {
+    val classtag = classTag[T]
+    val typetag = typeTag[T]
 
-    if (this.grains.contains(tag)) {
-      logger.warn(s"${tag.runtimeClass.getName} already registered in slave.")
+    if (this.grains.contains(classtag)) {
+      logger.warn(s"${classtag.runtimeClass.getName} already registered in slave.")
     }
 
-    this.grains += classTag[T]
+    this.grains += Tuple2(classtag, typetag)
     this
   }
 
@@ -106,7 +108,7 @@ class SlaveBuilder extends LazyLogging {
 class Slave(val slaveConfig: ServerConfig,
             masterConfig: ServerConfig,
             executionContext: ExecutionContext,
-            val registeredGrains: List[ClassTag[_ <: Grain]] = List())
+            val registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
@@ -179,10 +181,13 @@ class Slave(val slaveConfig: ServerConfig,
 
   def startGrainDispatchers() = {
     registeredGrains.foreach { x =>
+      implicit val classtag: ClassTag[_ <: Grain] = x._1
+      implicit val typetag: TypeTag[_ <: Grain] = x._2
+
       // Create a new dispatcher and run it in a new thread
-      val d = new Dispatcher(getFreePort)(x)
+      val d = new Dispatcher(getFreePort)
       val dThread : Thread = new Thread(d)
-      dThread.setName(s"Dispatcher-${d.port}-${x.runtimeClass.getName}")
+      dThread.setName(s"Dispatcher-${d.port}-${classtag.runtimeClass.getName}")
       dThread.start()
 
       dispatchers = d :: dispatchers
