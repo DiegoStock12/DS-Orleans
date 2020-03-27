@@ -3,8 +3,11 @@ package org.orleans.silo.Test
 import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
+import scala.reflect.runtime.universe._
 import scala.reflect._
 
 object Testing {
@@ -12,31 +15,37 @@ object Testing {
   def main(args: Array[String]): Unit = {
     println("Trying to get the socket")
 
-    var id: String = ""
+    var id: String = "initial value"
 
     // The master grain in the master has ID "master" so it's easy to find!
     val g = GrainRef("master", "localhost", 1400)
+    // Get the grain reference
+//    val g = GrainRef("b01ed5f3-96eb-45ea-8eea-53e383e8c2f6", "localhost", 1400)
+//    val g = GrainRef("1234", "localhost", 1400)
     println("Sending request")
-    val tag = classTag[GreeterGrain]
-    println(tag)
+    val classtag = classTag[GreeterGrain]
+    val typetag = typeTag[GreeterGrain]
+    println(classtag)
 
     // Try to create a grain
     println("Creating the grain!")
-    g ? CreateGrainRequest(tag) onComplete {
-      case Success(value: CreateGrainResponse) =>
+    val result = g ? CreateGrainRequest(classtag, typetag)
+    val mappedResult = result.map {
+      case value: CreateGrainResponse =>
+        println("Received CreateGrainResponse!")
         println(value)
         id = value.id
-      case _ => println("not working")
+      case other => println(s"Something went wrong: $other")
     }
+    Await.result(mappedResult, 5 seconds)
 
-    Thread.sleep(1000)
     println(s"ID of the grain is $id")
     println("Searching for the grain")
 
     var port : Int = 0
 
     // Search for a grain
-    g ? SearchGrainRequest(id) onComplete {
+    g ? SearchGrainRequest(id, classtag) onComplete {
       case Success(value: SearchGrainResponse) =>
         println(value)
         port = value.port
@@ -51,7 +60,8 @@ object Testing {
       case _ => "Not working"
     }
 
-    Thread.sleep(1000)
+    Thread.sleep(10000)
+
 
 
     // Delete that grain
@@ -78,7 +88,7 @@ object Testing {
     //      })
     //    }
 
-    Thread.sleep(1500)
+//    Thread.sleep(1500)
   }
 
   def time[R](block: => R): R = {

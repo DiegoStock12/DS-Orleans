@@ -1,6 +1,6 @@
-package main.scala.org.orleans.client
+package org.orleans.client
+
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.developer.twitter.TwitterAcountRef
 import org.orleans.silo.Services.Grain.{Grain, GrainRef, GrainReference}
 import org.orleans.silo.control.{
   CreateGrainRequest,
@@ -13,6 +13,7 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.{ClassTag, classTag}
+import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
 class OrleansRuntimeBuilder extends LazyLogging {
@@ -50,11 +51,13 @@ class OrleansRuntimeBuilder extends LazyLogging {
 object OrleansRuntime {
   def apply(): OrleansRuntimeBuilder = new OrleansRuntimeBuilder()
 
-  def createGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+  def createGrain[G <: Grain: ClassTag: TypeTag,
+                  Ref <: GrainReference: ClassTag](
       master: GrainRef): Future[Ref] = {
     val tagGrain = classTag[G]
     val tagRef = classTag[Ref]
-    (master ? CreateGrainRequest(tagGrain)).flatMap {
+    val tt = typeTag[G]
+    (master ? CreateGrainRequest(tagGrain, tt)).flatMap {
       case value: CreateGrainResponse => {
         val id = value.id
         val address = value.address
@@ -79,7 +82,8 @@ object OrleansRuntime {
       master: GrainRef): Future[Ref] = {
     val tag = classTag[G]
     val tagRef = classTag[Ref]
-    (master ? SearchGrainRequest(id)).flatMap {
+
+    (master ? SearchGrainRequest(id, tag)).flatMap {
       case value: SearchGrainResponse => {
         val address = value.address
         val port = value.port
@@ -107,10 +111,11 @@ class OrleansRuntime(private val host: String,
   val MASTER_ID: String = "master"
   val master: GrainRef = GrainRef(MASTER_ID, host, port)
 
-  def createGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag]()
-    : Future[Ref] = OrleansRuntime.createGrain[G, Ref](master)
+  def createGrain[G <: Grain: TypeTag: ClassTag,
+                  Ref <: GrainReference: ClassTag](): Future[Ref] =
+    OrleansRuntime.createGrain[G, Ref](master)
 
-  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] =
+  def createGrain[G <: Grain: TypeTag: ClassTag](): Future[GrainRef] =
     OrleansRuntime.createGrain[G, GrainRef](master)
 
   def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](

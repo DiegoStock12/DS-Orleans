@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level
 import org.orleans.developer.twitter.{Twitter, TwitterAccount}
 import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.Test.GreeterGrain
+import org.orleans.silo.storage.GrainDatabase
 import org.orleans.silo.utils.ServerConfig
 
 import scala.concurrent.ExecutionContext
@@ -13,6 +14,8 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
+
+    GrainDatabase.setApplicationName("HelloWorld")
 
     /**
       * A simple test-scenario is run here.

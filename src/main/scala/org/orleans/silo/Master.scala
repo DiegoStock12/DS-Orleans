@@ -22,14 +22,16 @@ import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.reflect.runtime.universe
 import scala.reflect.{ClassTag, _}
+import scala.reflect.runtime.universe._
 
 // Class that will serve as index for the grain map
 case class GrainInfo(slave: String,
                      address: String,
                      port: Int,
-                     state: GrainState,
-                     load: Int)
+                     var state: GrainState,
+                     var load: Int)
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -39,7 +41,8 @@ class MasterBuilder extends LazyLogging {
 
   private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
   private var executionContext: ExecutionContext = null
-  private var grains: mutable.MutableList[ClassTag[_ <: Grain]] =
+  private var grains
+    : mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
     mutable.MutableList()
 
   def setHost(hostt: String): MasterBuilder = {
@@ -72,14 +75,16 @@ class MasterBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag] = {
-    val tag = classTag[T]
+  def registerGrain[T <: Grain: ClassTag: TypeTag]: MasterBuilder = {
+    val classtag = classTag[T]
+    val typetag = typeTag[T]
 
-    if (this.grains.contains(tag)) {
-      logger.warn(s"${tag.runtimeClass.getName} already registered in master.")
+    if (this.grains.contains(classtag)) {
+      logger.warn(
+        s"${classtag.runtimeClass.getName} already registered in master.")
     }
 
-    this.grains += classTag[T]
+    this.grains += Tuple2(classtag, typetag)
     this
   }
 
@@ -100,16 +105,17 @@ class MasterBuilder extends LazyLogging {
   * @param masterConfig     Server configuration for the master
   * @param executionContext Execution context for the RPC services
   */
-class Master(masterConfig: ServerConfig,
-             val executionContext: ExecutionContext,
-             registeredGrains: List[ClassTag[_ <: Grain]] = List())
+class Master(
+    masterConfig: ServerConfig,
+    val executionContext: ExecutionContext,
+    registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
     extends LazyLogging
     with Runnable
     with PacketListener {
 
   // Hashmap to save the grain references
-  val grainMap: ConcurrentHashMap[String, GrainInfo] =
-    new ConcurrentHashMap[String, GrainInfo]()
+  val grainMap: ConcurrentHashMap[String, List[GrainInfo]] =
+    new ConcurrentHashMap[String, List[GrainInfo]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -365,17 +371,19 @@ class Master(masterConfig: ServerConfig,
       d.split(":") match {
         case Array(id, load) => {
           if (this.grainMap.containsKey(id)) {
-            val grainInfo: GrainInfo = this.grainMap.get(id)
-            if (grainInfo.load != load.toInt) {
-              val newGrainInfo: GrainInfo = GrainInfo(grainInfo.slave,
-                                                      grainInfo.address,
-                                                      grainInfo.port,
-                                                      grainInfo.state,
-                                                      load.toInt)
-              this.grainMap.replace(id, newGrainInfo)
+            val grain: Option[GrainInfo] = this.grainMap
+              .get(id)
+              .find(x => x.address.equals(host) && x.port.equals(port))
+            if (grain.isDefined) {
+              val reportingGrain: GrainInfo = grain.get
+              reportingGrain.load = load.toInt
+              updateSlavesTotalLoad()
+            } else {
+              logger.warn(
+                s"Master does not see any activation of the grain ${id}.")
             }
           } else {
-            logger.debug(
+            logger.warn(
               "Slave reports about grain that master doesn't know about.")
           }
         }
@@ -383,6 +391,21 @@ class Master(masterConfig: ServerConfig,
       }
     }
     logger.debug(s"${this.grainMap}")
+  }
+
+  /**
+    * Calculates the loads of each slave as the sum of loads of each grain on a slave.
+    */
+  def updateSlavesTotalLoad(): Unit = {
+    for ((k, v) <- this.slaves) {
+      var totalLoad: Int = 0
+      this.grainMap.forEach((kg, vg) => {
+        totalLoad += vg
+          .filter(grain => v.host.equals(grain.slave))
+          .foldLeft(0)((acc, b) => acc + b.load)
+      })
+      v.totalLoad = totalLoad
+    }
   }
 
   /**
