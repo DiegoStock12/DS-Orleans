@@ -31,21 +31,6 @@ object ClientMain {
     println(
       s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
 
-    time = System.currentTimeMillis()
-    val twitterFuture1: Future[TwitterRef] =
-      runtime.createGrain[Twitter, TwitterRef]()
-    val twitter1 = Await.result(twitterFuture1, 5 seconds)
-    println(
-      s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
-
-    time = System.currentTimeMillis()
-    val twitterFuture2: Future[TwitterRef] =
-      runtime.createGrain[Twitter, TwitterRef]()
-    val twitter2 = Await.result(twitterFuture2, 5 seconds)
-    println(twitter2.grainRef.id)
-    println(
-      s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
-
     //twitter.grainRef ! UserExists("wouter")
     //twitter.grainRef ! UserExists("diego")
     //twitter.grainRef ! UserCreate("wouter", "")
@@ -59,6 +44,7 @@ object ClientMain {
 //      (1 to 100).toList.map(x => twitter.createAccount(s"wouter-${x}")))
 //    val results = Await.ready(futures, 10 seconds)
 
+    println("Now creating 10 000 users")
     time = System.currentTimeMillis()
     for (i <- (1 to 10000)) {
       Await.result(twitter.createAccount(s"wouter-${i}"), 50 seconds)
@@ -68,6 +54,7 @@ object ClientMain {
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
     println(s"That took ${System.currentTimeMillis() - time}ms")
 
+    println("Now searching those 10 000 users")
     time = System.currentTimeMillis()
     for (i <- (1 to 10000)) {
       Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
