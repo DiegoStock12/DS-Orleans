@@ -41,7 +41,8 @@ class MasterBuilder extends LazyLogging {
 
   private var serverConfig: ServerConfig = ServerConfig("", 0, 0)
   private var executionContext: ExecutionContext = null
-  private var grains: mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
+  private var grains
+    : mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
     mutable.MutableList()
 
   def setHost(hostt: String): MasterBuilder = {
@@ -74,12 +75,13 @@ class MasterBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain : ClassTag : TypeTag]: MasterBuilder = {
+  def registerGrain[T <: Grain: ClassTag: TypeTag]: MasterBuilder = {
     val classtag = classTag[T]
     val typetag = typeTag[T]
 
     if (this.grains.contains(classtag)) {
-      logger.warn(s"${classtag.runtimeClass.getName} already registered in master.")
+      logger.warn(
+        s"${classtag.runtimeClass.getName} already registered in master.")
     }
 
     this.grains += Tuple2(classtag, typetag)
@@ -103,10 +105,11 @@ class MasterBuilder extends LazyLogging {
   * @param masterConfig     Server configuration for the master
   * @param executionContext Execution context for the RPC services
   */
-class Master(masterConfig: ServerConfig,
-             val executionContext: ExecutionContext,
-             registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
-  extends LazyLogging
+class Master(
+    masterConfig: ServerConfig,
+    val executionContext: ExecutionContext,
+    registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
+    extends LazyLogging
     with Runnable
     with PacketListener {
 
@@ -129,6 +132,7 @@ class Master(masterConfig: ServerConfig,
   val packetManager: PacketManager =
     new PacketManager(this, masterConfig.udpPort)
 
+  // Dispatchers and ports used.
   var dispatchers: List[Dispatcher[_ <: Grain]] = List()
   private var portsUsed: Set[Int] = Set()
 
@@ -168,6 +172,9 @@ class Master(masterConfig: ServerConfig,
     mainDispatcherThread.start()
   }
 
+  /**
+    * Returns a free port that hasn't been used by any of the grains.
+    */
   def getFreePort: Int = {
     val portsLeft = masterConfig.grainPorts.diff(portsUsed)
 
@@ -219,7 +226,7 @@ class Master(masterConfig: ServerConfig,
   def notifyAllSlaves(packet: Packet, except: List[String] = List()): Unit = {
     for ((_, slaveInfo) <- slaves) {
       if (!except.contains(slaveInfo.uuid)) {
-        packetManager.send(packet, slaveInfo.host, slaveInfo.port)
+        packetManager.send(packet, slaveInfo.host, slaveInfo.udpPort)
       }
     }
   }
@@ -279,25 +286,31 @@ class Master(masterConfig: ServerConfig,
     * @param host   The host receiving from.
     * @param port   The port receiving from.
     */
-  def processHandshake(packet: Packet, host: String, port: Int): Unit = {
+  def processHandshake(packet: Packet, host: String, udpPort: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
     if (slaves.contains(packet.uuid)) return
     logger.debug(s"Adding new slave to the cluster.")
 
     // First we add it to the slaves table.
-    val slaveInfo = SlaveInfo(packet.uuid, host, port, packet.timestamp)
+    val slaveInfo = SlaveInfo(packet.uuid,
+                              host,
+                              udpPort,
+                              packet.data(0).toInt,
+                              packet.timestamp)
     slaves.put(slaveInfo.uuid, slaveInfo)
 
     // Then we send the slave its welcome packet :)
     val welcome =
       Packet(PacketType.WELCOME, this.uuid, System.currentTimeMillis())
-    packetManager.send(welcome, host, port)
+    packetManager.send(welcome, host, udpPort)
 
     // And send all other slaves in the cluster there is a new slave.
     val new_slave = Packet(PacketType.SLAVE_CONNECT,
                            slaveInfo.uuid,
                            System.currentTimeMillis(),
-                           List(slaveInfo.host, slaveInfo.port.toString))
+                           List(slaveInfo.host,
+                                slaveInfo.udpPort.toString,
+                                slaveInfo.tcpPort.toString))
     notifyAllSlaves(new_slave, except = List(slaveInfo.uuid))
 
     // Finally send this slave awareness of all other slaves.
@@ -307,9 +320,12 @@ class Master(masterConfig: ServerConfig,
           PacketType.SLAVE_CONNECT,
           otherSlaveInfo.uuid,
           System.currentTimeMillis(),
-          List(otherSlaveInfo.host, otherSlaveInfo.port.toString))
+          List(otherSlaveInfo.host,
+               otherSlaveInfo.udpPort.toString,
+               otherSlaveInfo.tcpPort.toString)
+        )
 
-        packetManager.send(slavePacket, host, port)
+        packetManager.send(slavePacket, host, udpPort)
       }
     }
 
@@ -350,52 +366,57 @@ class Master(masterConfig: ServerConfig,
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.warn(s"Processing load data: ${packet.data}")
+    logger.debug(s"Processing load data: ${packet.data}")
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
           if (this.grainMap.containsKey(id)) {
-            val grain: Option[GrainInfo] = this.grainMap.get(id).find(x => x.address.equals(host) && x.port.equals(port))
+            val grain: Option[GrainInfo] = this.grainMap
+              .get(id)
+              .find(x => x.address.equals(host) && x.port.equals(port))
             if (grain.isDefined) {
               val reportingGrain: GrainInfo = grain.get
               reportingGrain.load = load.toInt
               updateSlavesTotalLoad()
             } else {
-              logger.warn(s"Master does not see any activation of the grain ${id}.")
+              logger.warn(
+                s"Master does not see any activation of the grain ${id}.")
             }
           } else {
-            logger.warn("Slave reports about grain that master doesn't know about.")
+            logger.warn(
+              "Slave reports about grain that master doesn't know about.")
           }
         }
         case _ => logger.warn("Couldn't parse packet with metrics.")
       }
     }
-    logger.warn(s"${this.grainMap}")
+    logger.debug(s"${this.grainMap}")
   }
 
-
   /**
-   * Calculates the loads of each slave as the sum of loads of each grain on a slave.
-   */
+    * Calculates the loads of each slave as the sum of loads of each grain on a slave.
+    */
   def updateSlavesTotalLoad(): Unit = {
     for ((k, v) <- this.slaves) {
       var totalLoad: Int = 0
       this.grainMap.forEach((kg, vg) => {
-        totalLoad += vg.filter(grain => v.host.equals(grain.slave)).foldLeft(0)((acc, b) => acc + b.load)
+        totalLoad += vg
+          .filter(grain => v.host.equals(grain.slave))
+          .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
     }
   }
 
   /**
-   * Processes a shutdown of a slave.
-   * 1) Remove the slave from its own table.
-   * 2) Make other slaves aware this slave is removed.
-   *
-   * @param packet The shutdown packet.
-   * @param host   The host receiving from.
-   * @param port   The port receiving from.
-   */
+    * Processes a shutdown of a slave.
+    * 1) Remove the slave from its own table.
+    * 2) Make other slaves aware this slave is removed.
+    *
+    * @param packet The shutdown packet.
+    * @param host   The host receiving from.
+    * @param port   The port receiving from.
+    */
   def processShutdown(packet: Packet, host: String, port: Int): Unit = {
     // Remove the slave.
     removeSlave(packet.uuid)

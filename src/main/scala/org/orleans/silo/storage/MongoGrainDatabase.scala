@@ -29,22 +29,29 @@ object MongoGrainDatabase {
   }
 }
 
-class MongoGrainDatabase(val connectionString: String, databaseName: String) extends GrainDatabase with LazyLogging {
+class MongoGrainDatabase(val connectionString: String, databaseName: String)
+    extends GrainDatabase
+    with LazyLogging {
 
   def this(databaseName: String) {
     this(MongoGrainDatabase.loadConnectionString(), databaseName);
   }
 
-  LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(Level.ERROR)
+  LoggerFactory.getILoggerFactory
+    .asInstanceOf[LoggerContext]
+    .getLogger("org.mongodb.driver")
+    .setLevel(Level.ERROR)
 
   lazy private val client = MongoClient(connectionString)
   lazy private val database: MongoDatabase = client.getDatabase(databaseName)
-  lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grains")
-
-
+  lazy private val grainCollection: MongoCollection[Document] =
+    database.getCollection("grains")
 
   def setMongoLogLevel(level: Level): Unit = {
-    LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext].getLogger("org.mongodb.driver").setLevel(level)
+    LoggerFactory.getILoggerFactory
+      .asInstanceOf[LoggerContext]
+      .getLogger("org.mongodb.driver")
+      .setLevel(level)
   }
 
   /**
@@ -53,10 +60,14 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     * @tparam T Specific subtype of the grain
     * @return Returns a Future that contains the old stored grain if it was successfully stored or else an exception
     */
-  override def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]] = {
+  override def store[T <: Grain with AnyRef: ClassTag: TypeTag](
+      grain: T): Future[Option[T]] = {
     val jsonString = GrainSerializer.serialize(grain)
     logger.debug(s"Inserting or updating grain: $grain")
-    val result = grainCollection.findOneAndUpdate(equal("_id", grain._id), Document("$set" -> Document(jsonString)), FindOneAndUpdateOptions().upsert(true))
+    val result = grainCollection.findOneAndUpdate(
+      equal("_id", grain._id),
+      Document("$set" -> Document(jsonString)),
+      FindOneAndUpdateOptions().upsert(true))
 
     result.toFuture().transform {
       case Success(document) =>
@@ -80,7 +91,8 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  override def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T] = {
+  override def load[T <: Grain with AnyRef: ClassTag: TypeTag](
+      id: String): Future[T] = {
     load("_id", id)
   }
 
@@ -91,12 +103,16 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     * @tparam T Type of the grain that is being loaded.
     * @return The loaded grain
     */
-  override def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T] = {
-    val observable: SingleObservable[Document] = grainCollection.find(equal(fieldName, value)).first()
+  override def load[T <: Grain with AnyRef: ClassTag: TypeTag](
+      fieldName: String,
+      value: Any): Future[T] = {
+    val observable: SingleObservable[Document] =
+      grainCollection.find(equal(fieldName, value)).first()
 
     observable.toFuture().transform {
       case Success(document) =>
-        logger.debug(s"Succesfully loaded grain: ${document.toJson()}! Now deserializing...")
+        logger.debug(
+          s"Succesfully loaded grain: ${document.toJson()}! Now deserializing...")
         Success(GrainSerializer.deserialize(document.toJson()))
       case Failure(e) =>
         logger.debug("Something went wrong when storing the grain.")
@@ -104,12 +120,15 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     }
   }
 
-  override def delete[T <: Grain with AnyRef : ClassTag : universe.TypeTag](id: String): Future[T] = {
-    val observable: SingleObservable[Document] = grainCollection.findOneAndDelete(equal("_id", id))
+  override def delete[T <: Grain with AnyRef: ClassTag: universe.TypeTag](
+      id: String): Future[T] = {
+    val observable: SingleObservable[Document] =
+      grainCollection.findOneAndDelete(equal("_id", id))
 
     observable.toFuture().transform {
       case Success(document) =>
-        logger.debug(s"Succesfully deleted grain: ${document.toJson()}! Now deserializing...")
+        logger.debug(
+          s"Succesfully deleted grain: ${document.toJson()}! Now deserializing...")
         Success(GrainSerializer.deserialize(document.toJson()))
       case Failure(e) =>
         logger.error("Something went wrong when deleting the grain.")
@@ -123,8 +142,10 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     * @tparam T
     * @return
     */
-  override def get[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Option[T] = {
-    val observable: SingleObservable[Document] = grainCollection.find(equal("_id", id)).first()
+  override def get[T <: Grain with AnyRef: ClassTag: TypeTag](
+      id: String): Option[T] = {
+    val observable: SingleObservable[Document] =
+      grainCollection.find(equal("_id", id)).first()
 
     val result: Future[Option[T]] = observable.toFuture().transform {
       case Success(document) =>
@@ -143,16 +164,16 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
 
     Await.result(result, 5 seconds) match {
       case Some(grain: T) => Some(grain)
-      case _ => None
+      case _              => None
     }
   }
 
-
   override def contains(id: String): Boolean = {
-    val observable: SingleObservable[Document] = grainCollection.find(equal("_id", id)).first()
+    val observable: SingleObservable[Document] =
+      grainCollection.find(equal("_id", id)).first()
 
     Await.result(observable.toFuture(), 5 seconds) match {
-      case null => false
+      case null                                   => false
       case document: Document if document != null => true
     }
   }
@@ -165,4 +186,3 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String) ext
     client.close()
   }
 }
-

@@ -4,15 +4,16 @@ import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.dispatcher.Sender
 
-class GreeterGrain(_id: String) extends Grain(_id)
-  with LazyLogging {
+import scala.reflect.ClassTag
+
+class GreeterGrain(_id: String) extends Grain(_id) with LazyLogging {
 
   logger.info("Greeter implementation running")
 
   /**
-   *Receive method of the grain
-   * @return
-   */
+    *Receive method of the grain
+    * @return
+    */
   def receive = {
     case ("hi", _) =>
       logger.info("Hello back to you")
@@ -23,4 +24,3 @@ class GreeterGrain(_id: String) extends Grain(_id)
       sender ! "Hello World!"
   }
 }
-

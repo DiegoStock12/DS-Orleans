@@ -21,7 +21,8 @@ object ConnectionProtocol {
   case class MasterInfo(uuid: String, lastHeartbeat: Long)
   case class SlaveInfo(uuid: String,
                        host: String,
-                       port: Int,
+                       udpPort: Int,
+                       tcpPort: Int,
                        lastHeartbeat: Long = -1,
                        var totalLoad: Int = 0)
 
