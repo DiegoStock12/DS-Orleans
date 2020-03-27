@@ -23,6 +23,8 @@ case class CreateGrainResponse(id: String, address: String, port: Int)
 
 case class ActiveGrainRequest(id: String, grainType: TypeTag[_ <: Grain])
 
+case class UpdateGrainStateRequest(id: String, state: String, source: String, port: Int)
+
 /**
  * Request to find a grain
  * @param id id of the grain to be searched

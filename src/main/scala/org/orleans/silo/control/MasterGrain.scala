@@ -8,6 +8,7 @@ import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
 import org.orleans.silo.dispatcher.Sender
 import org.orleans.silo.storage.GrainDatabase
 import org.orleans.silo.utils.GrainState
+import org.orleans.silo.utils.GrainState.GrainState
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -39,6 +40,10 @@ class MasterGrain(_id: String, master: Master)
       logger.info("Master handling delete grain request")
       processDeleteGrain(request)
 
+    case (request: UpdateGrainStateRequest, sender: Sender) =>
+      logger.info("Master handling update grain state request")
+      processUpdateState(request)
+
   }
 
   /**
@@ -50,7 +55,7 @@ class MasterGrain(_id: String, master: Master)
   private def processGrainSearch(request: SearchGrainRequest, sender: Sender): Unit = {
     val id = request.id
     if (master.grainMap.containsKey(id)) {
-      val activeGrains: List[GrainInfo] = master.grainMap.get(id)
+      val activeGrains: List[GrainInfo] = master.grainMap.get(id).filter(grain => GrainState.InMemory.equals(grain.state))
       if (activeGrains.nonEmpty) {
         val leastLoadedGrain: GrainInfo = activeGrains.reduceLeft((x, y) => if (x.load < y.load) x else y)
         sender ! SearchGrainResponse(leastLoadedGrain.address, leastLoadedGrain.port)
@@ -78,7 +83,7 @@ class MasterGrain(_id: String, master: Master)
    * @param sender
    */
   private def processCreateGrain(request: CreateGrainRequest[_], sender: Sender): Unit = {
-    // Now get the only slave
+    // Now get the least loaded slave
     val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
     val slaveRef = GrainRef(info.uuid, info.host, 1600)
 
@@ -129,6 +134,27 @@ class MasterGrain(_id: String, master: Master)
     }
     else {
       logger.error(s"Not existing ID in the grainMap $id")
+    }
+
+  }
+
+  //TODO Decide when the salve deactivates the grain and send update state message
+  private def processUpdateState(request: UpdateGrainStateRequest, sender: Sender): Unit = {
+    logger.debug(s"Updating state of the grain ${request.id}.")
+    val newState: GrainState = GrainState.withNameWithDefault(request.state)
+    val slave: String = request.source
+    val port: Int = request.port
+    if (master.grainMap.containsKey(request.id)) {
+      val grainLocations: List[GrainInfo] = master.grainMap.get(request.id)
+      // Replace the description of the updated grain
+      grainLocations.foreach(grain => {
+        if (grain.address.equals(slave) && grain.port.equals(port)) {
+            grain.state = newState
+        }
+      })
+    } else {
+      logger.warn("Master notified about the grain it didn't know about!")
+      master.grainMap.put(request.id, List(GrainInfo(slave, slave, port, newState, 0)))
     }
 
   }

@@ -30,7 +30,7 @@ import scala.reflect.runtime.universe._
 case class GrainInfo(slave: String,
                      address: String,
                      port: Int,
-                     state: GrainState,
+                     var state: GrainState,
                      var load: Int)
 
 object Master {
