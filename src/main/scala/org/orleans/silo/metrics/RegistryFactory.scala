@@ -1,46 +1,61 @@
 package org.orleans.silo.metrics
 
-object RegistryFactory{
+import java.util.concurrent.ConcurrentHashMap
 
-    // Active registries collecting metrics on different services.
-    private var registries: Map[String, Registry] = Map[String, Registry]()
+import com.typesafe.scalalogging.LazyLogging
+import org.orleans.silo.GrainInfo
 
-    /**
-     * Creats and returns registry for new service.
-     * @param id Id of the service.
-     * @return New registry.
-     */
-    def getOrCreateRegistry(id: String): Registry = {
-      registries.getOrElse(id, {
-        val newRegistry = new Registry()
-        registries = registries + (id -> newRegistry)
-        newRegistry
-      })
-    }
+object RegistryFactory extends LazyLogging{
+
+  // Active registries collecting metrics on different services.
+  private val registries: ConcurrentHashMap[String, Registry] = new ConcurrentHashMap[String, Registry]()
 
   /**
-     * Deletes the registry of the service.
-     * @param id Id of the service.
-     */
-    def deleteRegistry(id: String): Unit = {
-        registries = registries - id
+   * Creats and returns registry for new service.
+   *
+   * @param id Id of the service.
+   * @return New registry.
+   */
+  def getOrCreateRegistry(id: String): Registry = {
+    if (registries.containsKey(id))
+      registries.get(id)
+    else {
+      val newRegistry = new Registry()
+      registries.put(id, newRegistry)
+      newRegistry
     }
+  }
 
-    /**
-     * Gets the collection of all active registries
-     * @return Map of registries per service.
-     */
-    def getRegistries(): Map[String, Registry] = {
-        registries
-    }
+  /**
+   * Deletes the registry of the service.
+   *
+   * @param id Id of the service.
+   */
+  def deleteRegistry(id: String): Unit = {
+    registries.remove(id)
+  }
+
+  /**
+   * Gets the collection of all active registries
+   *
+   * @return Map of registries per service.
+   */
+  def getRegistries(): ConcurrentHashMap[String, Registry] = {
+    registries
+  }
 
 
-    /**
-     * Gets the loads per service id.
-     * @return Map of loads per service.
-     */
-    def getRegistryLoads(): Map[String, Int] = {
-        registries map {case (id, registry) => (id, MetricsExtractor.getPendingRequests(registry))}
-    }
+  /**
+   * Gets the loads per service id.
+   *
+   * @return Map of loads per service.
+   */
+  def getRegistryLoads(): Map[String, Int] = {
+    var loads: Map[String, Int] = Map()
+    this.registries.forEach((id, registry) => {
+      loads += (id ->  MetricsExtractor.getPendingRequests(registry))
+    })
+    loads
+  }
 
 }

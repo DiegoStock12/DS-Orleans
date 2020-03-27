@@ -13,6 +13,12 @@ import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
 import org.orleans.silo.storage.GrainDatabase
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.util.{Failure, Success}
+
 import scala.concurrent.Future
 
 
@@ -160,6 +166,13 @@ class Dispatcher[T <: Grain : ClassTag : TypeTag](val port: Int)
 
     // Return the id of the grain
     id
+  }
+
+  /**
+   * Activates the existing grain.
+   */
+  def addActivation(id: String, grainTag: ClassTag[_ <: Grain]) = {
+
   }
 
   /**

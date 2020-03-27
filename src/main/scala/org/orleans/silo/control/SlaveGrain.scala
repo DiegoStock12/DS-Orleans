@@ -19,7 +19,7 @@ import scala.reflect._
  *
  */
 class SlaveGrain(_id: String, slave: Slave)
-    extends Grain(_id)
+  extends Grain(_id)
     with LazyLogging {
 
   logger.info("SLAVE GRAIN RUNNING!")
@@ -64,7 +64,7 @@ class SlaveGrain(_id: String, slave: Slave)
   def processGrainCreation[T <: Grain : ClassTag : TypeTag](request: CreateGrainRequest[T], sender: Sender) = {
     logger.info(s"Received creation request for grain ${request.grainClass.runtimeClass.getName}")
 
-  // If there exists a dispatcher for that grain just add it
+    // If there exists a dispatcher for that grain just add it
     if (slave.registeredGrains.contains(Tuple2(request.grainClass, request.grainType))) {
       logger.info(s"Found existing dispatcher for class")
 
