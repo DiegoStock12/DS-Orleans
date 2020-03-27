@@ -90,7 +90,8 @@ class MasterGrain(_id: String, master: Master)
     }
 
     // Check if the grain possibly still is defined in the database
-    val grain = GrainDatabase.instance.get(request.id)(request.grainClass, request.grainType)
+    logger.debug(s"Check if the grain possibly still is defined in the database, type: $typeTag")
+    val grain = GrainDatabase.instance.get[T](request.id)(request.grainClass, request.grainType)
     if (grain.isDefined) {
       // The grain does exist in the database so it can still be activated
       activateGrain()

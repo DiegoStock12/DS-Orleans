@@ -27,7 +27,7 @@ object Testing {
 //    val g = GrainRef("1234", "localhost", 1400)
 
     // Try to search for a grain that is deactivated
-    g ? SearchGrainRequest("758a265f-51b9-44b7-920d-78e545a37f1b", classtag, typetag) onComplete {
+    g ? SearchGrainRequest("29d95c86-b744-43cc-9de3-23a0e40c21c3", classtag, typetag) onComplete {
       case Success(value: SearchGrainResponse) =>
         println("Succesfully activate persistant grain by search!")
         println(value)
@@ -70,35 +70,13 @@ object Testing {
       case _ => "Not working"
     }
 
-    Thread.sleep(10000)
-
-
+    Thread.sleep(5000)
 
     // Delete that grain
     println("Trying to delete grain")
     // Try to delete the grain
     g ! DeleteGrainRequest(id)
 
-
-
-    // Send a message to the grain
-    // Synchronous request
-    //    println("Sending hello message to grain 1234")
-    //    time {
-    //      g ! "hello"
-    //      g ! "hello"
-    //    }
-    //
-    //
-    //    // Asynchronous request
-    //    time {
-    //      g ? 2 onComplete ({
-    //        case Success(value) => println(value)
-    //        case _ => println("not working")
-    //      })
-    //    }
-
-//    Thread.sleep(1500)
   }
 
   def time[R](block: => R): R = {

@@ -5,10 +5,13 @@ import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
+import org.orleans.silo.storage.GrainDatabase
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.reflect._
+import scala.util.{Failure, Success}
 
 
 /**
@@ -44,9 +47,13 @@ class SlaveGrain(_id: String, slave: Slave)
       dispatcher
 
     } else {
-      slave.dispatchers.filter {
+      val dispatcher: Dispatcher[T] = slave.dispatchers.filter {
         _.isInstanceOf[Dispatcher[T]]
       }.head.asInstanceOf[Dispatcher[T]]
+
+      logger.info(s"Found dispatcher for class: ${typeTag}")
+
+      dispatcher
     }
   }
 
@@ -152,8 +159,17 @@ class SlaveGrain(_id: String, slave: Slave)
 
     println(s"$dispatcher - ${dispatcher.port}")
 
-    // Delete the grain
-    dispatcher.deleteGrain(id)
+
+    GrainDatabase.instance.delete(request.id).onComplete {
+      case Success(_) =>
+        // Grain was successfully deleted from the database, now removing from dispatcher
+        dispatcher.deleteGrain(id)
+      case Failure(exception) =>
+        //TODO decide what to do when deleting grain from storage failed
+        logger.error(exception.toString)
+    }
+
+    // TODO Should we notify the sender whether or not deletion was succesful?
   }
 
   /**
@@ -166,7 +182,7 @@ class SlaveGrain(_id: String, slave: Slave)
 
     val dispatcher: Dispatcher[T] = getOrCreateDispatcher[T]()
 
-    dispatcher.addGrain(typeTag)
+    dispatcher.addActivation(request.id, request.grainType)
 
     // Add it to the grainMap
     logger.info(s"Adding to the slave grainmap id ${request.id}")
