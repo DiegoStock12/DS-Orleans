@@ -110,8 +110,14 @@ class OrleansRuntime(private val host: String,
   def createGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag]()
     : Future[Ref] = OrleansRuntime.createGrain[G, Ref](master)
 
+  def createGrain[G <: Grain: ClassTag](): Future[GrainRef] =
+    OrleansRuntime.createGrain[G, GrainRef](master)
+
   def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
       id: String): Future[Ref] = OrleansRuntime.getGrain[G, Ref](id, master)
+
+  def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] =
+    OrleansRuntime.getGrain[G, GrainRef](id, master)
 
   def getHost() = host
   def getPort() = port

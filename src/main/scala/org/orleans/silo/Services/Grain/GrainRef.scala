@@ -33,7 +33,8 @@ trait GrainReference {
 // we could not be sure that it has been received
 class GrainRef private (val id: String, val address: String, val port: Int)
     extends LazyLogging
-    with Runnable {
+    with Runnable
+    with GrainReference {
 
   private var s: Socket = _
   private var outStream: ObjectOutputStream = _
