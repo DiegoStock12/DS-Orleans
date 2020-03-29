@@ -15,7 +15,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
-    GrainDatabase.setApplicationName("Testing")
+    GrainDatabase.setApplicationName("HelloWorld")
 
     /**
       * A simple test-scenario is run here.
@@ -48,7 +48,7 @@ object Main {
       .registerGrain[TwitterAccount]
       .setHost("localhost")
       .setTCPPort(1800)
-      .setUDPPort(19010)
+      .setUDPPort(1900)
       .setMasterHost("localhost")
       .setMasterTCPPort(1400)
       .setMasterUDPPort(1500)
