@@ -18,7 +18,7 @@ libraryDependencies ++= Seq(
 //  "org.typelevel" %% "cats-effect" % "2.1.2"
 )
 
-// Necessary for compiling protobuf files
+// 
 PB.targets in Compile := Seq(
   scalapb.gen() -> (sourceManaged in Compile).value
 )

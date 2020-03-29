@@ -17,8 +17,6 @@ class TestGrain(_id: String) extends Grain(_id) {
 
 object DatabaseConnectionTest extends LazyLogging {
 
-
-
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def main(args: Array[String]): Unit = {
@@ -33,10 +31,11 @@ object DatabaseConnectionTest extends LazyLogging {
           logger.debug(s"Succesfully stored new grain.")
         } else {
           logger.debug(s"Succesfully stored grain. Old value of grain: $value")
-      }
+        }
 
       case Failure(e) =>
-        logger.error(s"Something went wrong during storing of grain. Cause: ${e.toString}")
+        logger.error(
+          s"Something went wrong during storing of grain. Cause: ${e.toString}")
     }
 
     Await.ready(storeResult, 10 seconds)

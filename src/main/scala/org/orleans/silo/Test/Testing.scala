@@ -31,6 +31,8 @@ object Testing {
       case Success(value: SearchGrainResponse) =>
         println("Succesfully activate persistant grain by search!")
         println(value)
+      case Success(value) =>
+        println(s"Unknown return value received: $value!")
       case Failure(exception) => exception.printStackTrace()
     }
     Thread.sleep(1000)

@@ -18,14 +18,11 @@ object Test {
     ////    reportingGrain.load = 5
 
     val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
-    slaves.put("123", SlaveInfo("abc", "abc", 10))
 
     for ((k, v) <- slaves) {
       val totalLoad: Int = 5
       v.totalLoad = totalLoad
     }
-
-    print(slaves)
 
   }
 

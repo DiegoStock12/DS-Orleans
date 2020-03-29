@@ -6,7 +6,11 @@ import java.util.concurrent.ConcurrentHashMap
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.communication.{
+  PacketListener,
+  PacketManager,
+  ConnectionProtocol => protocol
+}
 import org.orleans.silo.control.SlaveGrain
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.RegistryFactory
@@ -28,7 +32,8 @@ class SlaveBuilder extends LazyLogging {
   private var masterConfig: ServerConfig = ServerConfig("", 0, 0)
 
   private var executionContext: ExecutionContext = null
-  private var grains: mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
+  private var grains
+    : mutable.MutableList[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
     mutable.MutableList()
 
   def setHost(hostt: String): SlaveBuilder = {
@@ -76,12 +81,13 @@ class SlaveBuilder extends LazyLogging {
     this
   }
 
-  def registerGrain[T <: Grain: ClassTag : TypeTag] = {
+  def registerGrain[T <: Grain: ClassTag: TypeTag] = {
     val classtag = classTag[T]
     val typetag = typeTag[T]
 
     if (this.grains.contains(classtag)) {
-      logger.warn(s"${classtag.runtimeClass.getName} already registered in slave.")
+      logger.warn(
+        s"${classtag.runtimeClass.getName} already registered in slave.")
     }
 
     this.grains += Tuple2(classtag, typetag)
@@ -105,17 +111,19 @@ class SlaveBuilder extends LazyLogging {
   * @param masterConfig Config of the master server
   * @param executionContext Execution context for the RPC services
   */
-class Slave(val slaveConfig: ServerConfig,
-            masterConfig: ServerConfig,
-            executionContext: ExecutionContext,
-            val registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] = List())
+class Slave(
+    val slaveConfig: ServerConfig,
+    masterConfig: ServerConfig,
+    executionContext: ExecutionContext,
+    val registeredGrains: List[(ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
+      List())
     extends LazyLogging
     with Runnable
     with PacketListener {
 
   // Hashmap that identifies each grainID with its type so
   // we can check which dispatcher is in charge of that ID
-  val grainMap: ConcurrentHashMap[String,  ClassTag[_ <: Grain]] =
+  val grainMap: ConcurrentHashMap[String, ClassTag[_ <: Grain]] =
     new ConcurrentHashMap[String, ClassTag[_ <: Grain]]()
 
   // Metadata for the slave.
@@ -140,7 +148,9 @@ class Slave(val slaveConfig: ServerConfig,
   // Hash table of other slaves. This is threadsafe.
   val slaves = scala.collection.mutable.HashMap[String, SlaveInfo]()
 
+  @volatile
   var dispatchers: List[Dispatcher[_ <: Grain]] = List()
+
   private var portsUsed: Set[Int] = Set()
 
   /**
@@ -174,8 +184,9 @@ class Slave(val slaveConfig: ServerConfig,
     dispatchers = mainDispatcher :: dispatchers
 
     // Create the new thread to run the dispatcher and start it
-    val mainDispatcherThread : Thread = new Thread(mainDispatcher)
-    mainDispatcherThread.setName(s"Slave-${this.slaveConfig.host}-MainDispatcher")
+    val mainDispatcherThread: Thread = new Thread(mainDispatcher)
+    mainDispatcherThread.setName(
+      s"Slave-${this.slaveConfig.host}-MainDispatcher")
     mainDispatcherThread.start()
   }
 
@@ -186,7 +197,7 @@ class Slave(val slaveConfig: ServerConfig,
 
       // Create a new dispatcher and run it in a new thread
       val d = new Dispatcher(getFreePort)
-      val dThread : Thread = new Thread(d)
+      val dThread: Thread = new Thread(d)
       dThread.setName(s"Dispatcher-${d.port}-${classtag.runtimeClass.getName}")
       dThread.start()
 
@@ -194,6 +205,9 @@ class Slave(val slaveConfig: ServerConfig,
     }
   }
 
+  /**
+    * Returns a free port that hasn't been used by any of the grains.
+    */
   def getFreePort: Int = {
     val portsLeft = slaveConfig.grainPorts.diff(portsUsed)
 
@@ -255,7 +269,7 @@ class Slave(val slaveConfig: ServerConfig,
       verifyMasterAlive()
 
       // Now time to sleep :)
-      Thread.sleep(100)
+      Thread.sleep(SLEEP_TIME)
     }
   }
 
@@ -286,7 +300,10 @@ class Slave(val slaveConfig: ServerConfig,
     for (i <- 1 to protocol.connectionAttempts) {
       // Send a handshake and wait for a bit.
       val handshake =
-        new Packet(PacketType.HANDSHAKE, this.uuid, System.currentTimeMillis())
+        new Packet(PacketType.HANDSHAKE,
+                   this.uuid,
+                   System.currentTimeMillis(),
+                   List(slaveConfig.tcpPort.toString))
       packetManager.send(handshake, masterConfig.host, masterConfig.udpPort)
       Thread.sleep(protocol.connectionDelay)
 
@@ -393,7 +410,10 @@ class Slave(val slaveConfig: ServerConfig,
 
     // Store slaveInfo from data in packet.
     slaves.put(packet.uuid,
-               SlaveInfo(packet.uuid, packet.data(0), packet.data(1).toInt))
+               SlaveInfo(packet.uuid,
+                         packet.data(0),
+                         packet.data(1).toInt,
+                         packet.data(2).toInt))
     logger.debug(
       s"Added new slave ${protocol.shortUUID(packet.uuid)} to local hashtable.")
   }

@@ -1,35 +1,109 @@
 package org.orleans.client
-import main.scala.org.orleans.client.OrleansRuntime
+import org.orleans.developer.twitter.TwitterMessages.{UserCreate, UserExists}
+import org.orleans.developer.twitter.{
+  Twitter,
+  TwitterAccount,
+  TwitterAcountRef,
+  TwitterRef
+}
 import org.orleans.silo.Services.Grain.GrainRef
 import org.orleans.silo.Test.GreeterGrain
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success, Try}
 
 object ClientMain {
 
   def main(args: Array[String]): Unit = {
     val runtime = OrleansRuntime()
-      .registerGrain[GreeterGrain]
+      .registerGrain[Twitter]
+      .registerGrain[TwitterAccount]
       .setHost("localhost")
       .setPort(1400)
       .build()
 
     var time = System.currentTimeMillis()
-    val createGrainFuture: Future[GrainRef] =
-      runtime.createGrain[GreeterGrain]()
-    val grainRef = Await.result(createGrainFuture, 5 seconds)
+    val twitterFuture: Future[TwitterRef] =
+      runtime.createGrain[Twitter, TwitterRef]()
+    val twitter = Await.result(twitterFuture, 5 seconds)
+    println(
+      s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
 
-    println(s"Creating a grain took ${System.currentTimeMillis() - time}ms")
+    //twitter.grainRef ! UserExists("wouter")
+    //twitter.grainRef ! UserExists("diego")
+    //twitter.grainRef ! UserCreate("wouter", "")
+    //twitter.grainRef ! UserExists("wouter")
 
+    //val listF = Future.sequence(
+    //  List(1 to 100).map(x => runtime.createGrain[Twitter, TwitterRef]()))
+
+//    time = System.currentTimeMillis()
+//    val futures = Future.sequence(
+//      (1 to 100).toList.map(x => twitter.createAccount(s"wouter-${x}")))
+//    val results = Await.ready(futures, 10 seconds)
+
+    println("Now creating 10 000 users")
     time = System.currentTimeMillis()
-    val searchGrainFuture: Future[GrainRef] =
-      runtime.getGrain[GreeterGrain](grainRef.id)
-    val searchGrainRef = Await.result(searchGrainFuture, 5 seconds)
+    for (i <- (1 to 10000)) {
+      Await.result(twitter.createAccount(s"wouter-${i}"), 50 seconds)
+      //println(i)
+    }
 
-    println(s"Searching a grain took ${System.currentTimeMillis() - time}ms")
-    println(s"GrainRefs are equal: ${grainRef == searchGrainRef}.")
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    println("Now searching those 10 000 users")
+    time = System.currentTimeMillis()
+    for (i <- (1 to 10000)) {
+      Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      //println(i)
+    }
+
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+//    time = System.currentTimeMillis()
+//    val twitterWouter: TwitterAcountRef =
+//      Await
+//        .result(twitter.createAccount("wouter"), 5 seconds) match {
+//        case Success(ref: TwitterAcountRef) => ref
+//        case Failure(msg) => {
+//          println(msg)
+//          null
+//        }
+//      }
+//
+//    println(s"Creating a TwitterAccount grain for Wouter took ${System
+//      .currentTimeMillis() - time}ms")
+//
+//    time = System.currentTimeMillis()
+//    val twitterDiego: TwitterAcountRef =
+//      Await.result(twitter.createAccount("diego"), 5 seconds) match {
+//        case Success(ref: TwitterAcountRef) => ref
+//        case Failure(msg) => {
+//          println(msg)
+//          null
+//        }
+//      }
+//    println(s"Creating a TwitterAccount grain for Diego took ${System
+//      .currentTimeMillis() - time}ms")
+//
+//    time = System.currentTimeMillis()
+//    val twitterWouterTwo: TwitterAcountRef =
+//      Await.result(twitter.createAccount("pietje"), 5 seconds) match {
+//        case Success(ref: TwitterAcountRef) => ref
+//        case Failure(msg) => {
+//          println(msg)
+//          null
+//        }
+//      }
+//    println(
+//      s"Trying to create a second TwitterAccount grain for Wouter took ${System
+//        .currentTimeMillis() - time}ms")
 
   }
 }
