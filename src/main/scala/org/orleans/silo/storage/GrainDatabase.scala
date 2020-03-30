@@ -9,7 +9,13 @@ import scala.reflect.runtime.universe._
 
 object GrainDatabase extends LazyLogging {
   private var applicationName: String = _
-  lazy val instance: GrainDatabase = new MongoGrainDatabase(applicationName)
+  var disableDatabase = false
+  lazy val instance: GrainDatabase =
+    if (disableDatabase) {
+      new StubDatabase()
+    } else {
+      new MongoGrainDatabase(applicationName)
+    }
   def setApplicationName(name: String) = {
     if (applicationName != null) {
       logger.error("Can't set application name twice")
