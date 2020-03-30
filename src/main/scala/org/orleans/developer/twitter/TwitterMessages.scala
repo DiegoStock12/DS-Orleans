@@ -9,7 +9,9 @@ object TwitterMessages {
   case class UserRetrieve(grainId: String)
 
   case class Tweet(msg: String, timestamp: String)
-  case class FollowUser(id: String)
+  case class FollowUser(name: String)
+  case class GetFollowers()
+  case class FollowList(followList: List[String])
 
   case class TwitterSuccess()
   case class TwitterFailure(failure: String)

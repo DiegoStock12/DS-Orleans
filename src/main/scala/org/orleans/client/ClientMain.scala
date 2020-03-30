@@ -46,9 +46,12 @@ object ClientMain {
 
     println("Now creating 10 000 users")
     time = System.currentTimeMillis()
-    for (i <- (1 to 10000)) {
-      Await.result(twitter.createAccount(s"wouter-${i}"), 50 seconds)
-      //println(i)
+    val users = 10
+    Await.result(twitter.createAccount(s"wouter-1"), 50 seconds)
+    for (i <- (2 to users)) {
+      val user: TwitterAcountRef =
+        Await.result(twitter.createAccount(s"wouter-${i}"), 50 seconds)
+      user.followUser(twitter, "wouter-2")
     }
 
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
@@ -56,16 +59,14 @@ object ClientMain {
 
     println("Now searching those 10 000 users")
     time = System.currentTimeMillis()
-    for (i <- (1 to 10000)) {
+    for (i <- (1 to users)) {
       Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
-      //println(i)
     }
 
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
     println(s"That took ${System.currentTimeMillis() - time}ms")
 
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
-    println(s"That took ${System.currentTimeMillis() - time}ms")
 //    time = System.currentTimeMillis()
 //    val twitterWouter: TwitterAcountRef =
 //      Await
