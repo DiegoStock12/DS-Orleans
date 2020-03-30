@@ -1,19 +1,23 @@
 package org.orleans.developer.twitter
 import org.orleans.silo.Services.Grain.GrainRef
+import org.orleans.silo.control.GrainPacket
 
 object TwitterMessages {
 
-  case class UserExists(username: String)
-  case class UserCreate(username: String, ref: String)
-  case class UserGet(username: String)
-  case class UserRetrieve(grainId: String)
+  case class UserExists(username: String) extends GrainPacket
+  case class UserCreate(username: String, ref: String) extends GrainPacket
+  case class UserGet(username: String) extends GrainPacket
+  case class UserRetrieve(grainId: String) extends GrainPacket
 
-  case class Tweet(msg: String, timestamp: String)
-  case class FollowUser(name: String)
-  case class GetFollowers()
-  case class FollowList(followList: List[String])
+  case class SetUsername(name: String) extends GrainPacket
+  case class Tweet(msg: String, timestamp: String) extends GrainPacket
+  case class FollowUser(name: String) extends GrainPacket
+  case class GetFollowing() extends GrainPacket
+  case class FollowList(followList: List[String]) extends GrainPacket
+  case class GetTweetListSize() extends GrainPacket
+  case class TweetListSize(size: Int) extends GrainPacket
 
-  case class TwitterSuccess()
-  case class TwitterFailure(failure: String)
+  case class TwitterSuccess() extends GrainPacket
+  case class TwitterFailure(failure: String) extends GrainPacket
 
 }

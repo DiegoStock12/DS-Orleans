@@ -19,6 +19,7 @@ class TwitterRef extends GrainReference {
 
         grain flatMap {
           case x: TwitterAcountRef =>
+            (x.grainRef ! SetUsername(username))
             (grainRef ? UserCreate(username, x.grainRef.id)).flatMap {
               case TwitterSuccess() => grain
             }
@@ -40,12 +41,6 @@ class TwitterRef extends GrainReference {
       case TwitterFailure(msg: String) =>
         Future.failed(new IllegalArgumentException(s"$username: $msg"))
     }
-  }
-
-  private def mapValue[T](f: Future[T]): Future[Try[T]] = {
-    val prom = Promise[Try[T]]()
-    f onComplete prom.success
-    prom.future
   }
 
 }

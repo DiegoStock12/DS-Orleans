@@ -16,6 +16,7 @@ object Main {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
     GrainDatabase.setApplicationName("HelloWorld")
+    GrainDatabase.disableDatabase = true
 
     /**
       * A simple test-scenario is run here.

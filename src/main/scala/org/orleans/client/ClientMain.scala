@@ -31,80 +31,57 @@ object ClientMain {
     println(
       s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
 
-    //twitter.grainRef ! UserExists("wouter")
-    //twitter.grainRef ! UserExists("diego")
-    //twitter.grainRef ! UserCreate("wouter", "")
-    //twitter.grainRef ! UserExists("wouter")
-
-    //val listF = Future.sequence(
-    //  List(1 to 100).map(x => runtime.createGrain[Twitter, TwitterRef]()))
-
-//    time = System.currentTimeMillis()
-//    val futures = Future.sequence(
-//      (1 to 100).toList.map(x => twitter.createAccount(s"wouter-${x}")))
-//    val results = Await.ready(futures, 10 seconds)
-
-    println("Now creating 10 000 users")
-    time = System.currentTimeMillis()
     val users = 10
-    Await.result(twitter.createAccount(s"wouter-1"), 50 seconds)
-    for (i <- (2 to users)) {
-      val user: TwitterAcountRef =
-        Await.result(twitter.createAccount(s"wouter-${i}"), 50 seconds)
-      user.followUser(twitter, "wouter-2")
-    }
-
-    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
-    println(s"That took ${System.currentTimeMillis() - time}ms")
-
-    println("Now searching those 10 000 users")
+    println(s"Now creating $users users.")
     time = System.currentTimeMillis()
     for (i <- (1 to users)) {
-      Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      val user: TwitterAcountRef =
+        Await.result(twitter.createAccount(s"wouter-${i}"), 5 seconds)
     }
 
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
     println(s"That took ${System.currentTimeMillis() - time}ms")
 
+    println(s"Now searching those $users users and show following list.")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      for (j <- (1 to users)) {
+        if (i != j) {
+          Await.result(user.followUser(twitter, s"wouter-${j}"), 5 seconds)
+        }
+      }
+
+      val followers = Await.result(user.getFollowingList(), 50 seconds)
+      println(s"wouter-${i} - ${followers.size} followers")
+    }
+
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
-//    time = System.currentTimeMillis()
-//    val twitterWouter: TwitterAcountRef =
-//      Await
-//        .result(twitter.createAccount("wouter"), 5 seconds) match {
-//        case Success(ref: TwitterAcountRef) => ref
-//        case Failure(msg) => {
-//          println(msg)
-//          null
-//        }
-//      }
-//
-//    println(s"Creating a TwitterAccount grain for Wouter took ${System
-//      .currentTimeMillis() - time}ms")
-//
-//    time = System.currentTimeMillis()
-//    val twitterDiego: TwitterAcountRef =
-//      Await.result(twitter.createAccount("diego"), 5 seconds) match {
-//        case Success(ref: TwitterAcountRef) => ref
-//        case Failure(msg) => {
-//          println(msg)
-//          null
-//        }
-//      }
-//    println(s"Creating a TwitterAccount grain for Diego took ${System
-//      .currentTimeMillis() - time}ms")
-//
-//    time = System.currentTimeMillis()
-//    val twitterWouterTwo: TwitterAcountRef =
-//      Await.result(twitter.createAccount("pietje"), 5 seconds) match {
-//        case Success(ref: TwitterAcountRef) => ref
-//        case Failure(msg) => {
-//          println(msg)
-//          null
-//        }
-//      }
-//    println(
-//      s"Trying to create a second TwitterAccount grain for Wouter took ${System
-//        .currentTimeMillis() - time}ms")
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    println(s"Now searching those $users users and send 10 000 tweets.")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      var futures: List[Future[Any]] = List()
+      for (j <- (1 to 5000)) {
+        user.tweet("I like dis")
+      }
+
+    }
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    Thread.sleep(5000)
+    println(s"Now searching those $users users and get amount of tweets..")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      val size = Await.result(user.getAmountOfTweets(), 50 seconds)
+      println(s"wouter-${i} - $size tweets")
+    }
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
 
   }
 }

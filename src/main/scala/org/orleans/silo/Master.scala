@@ -379,11 +379,11 @@ class Master(
               reportingGrain.load = load.toInt
               updateSlavesTotalLoad()
             } else {
-              logger.warn(
+              logger.debug(
                 s"Master does not see any activation of the grain ${id}.")
             }
           } else {
-            logger.warn(
+            logger.debug(
               "Slave reports about grain that master doesn't know about.")
           }
         }
