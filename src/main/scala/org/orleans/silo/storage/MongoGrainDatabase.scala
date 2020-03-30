@@ -6,20 +6,22 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.FindOneAndUpdateOptions
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
-
-import scala.concurrent.duration._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.io.Source
 import scala.reflect.ClassTag
-import scala.reflect.runtime.universe
 import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
 object MongoGrainDatabase {
+
+  /**
+    * Loads the connection string to a given mongo instance from the MongodbConnection file.
+    * @return Mongodb connection string
+    */
   def loadConnectionString() = {
     val filename = "/MongodbConnection"
     val inputstream = getClass.getResourceAsStream(filename)
@@ -44,9 +46,13 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String)
 
   lazy private val client = MongoClient(connectionString)
   lazy private val database: MongoDatabase = client.getDatabase(databaseName)
-  lazy private val grainCollection: MongoCollection[Document] =
-    database.getCollection("grains")
+  lazy private val grainCollection: MongoCollection[Document] = database.getCollection("grains")
 
+
+  /**
+    * Sets the log level of the mongo driver
+    * @param level Log Level
+    */
   def setMongoLogLevel(level: Level): Unit = {
     LoggerFactory.getILoggerFactory
       .asInstanceOf[LoggerContext]
@@ -120,16 +126,19 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String)
     }
   }
 
-  override def delete[T <: Grain with AnyRef: ClassTag: universe.TypeTag](
-      id: String): Future[T] = {
-    val observable: SingleObservable[Document] =
-      grainCollection.findOneAndDelete(equal("_id", id))
+  /**
+    * Deletes the grain with the given id from the storage and returns a future with a boolean indicating whether or not this was succesful
+    * @param id Id of the grain that has to be deleted
+    * @return Future indicating whether or not deletion was succesful
+    */
+  override def delete(id: String): Future[Boolean] = {
+    val observable: SingleObservable[Document] = grainCollection.findOneAndDelete(equal("_id", id))
 
     observable.toFuture().transform {
-      case Success(document) =>
-        logger.debug(
-          s"Succesfully deleted grain: ${document.toJson()}! Now deserializing...")
-        Success(GrainSerializer.deserialize(document.toJson()))
+      case Success(document) => document match {
+        case null => Failure(new Exception(s"Grain deletion from mongodb failed, since grain with id $id not found"))
+        case _ => Success(true)
+      }
       case Failure(e) =>
         logger.error("Something went wrong when deleting the grain.")
         Failure(e)
@@ -137,10 +146,10 @@ class MongoGrainDatabase(val connectionString: String, databaseName: String)
   }
 
   /**
-    *
-    * @param id
-    * @tparam T
-    * @return
+    * Gets the grain synchronously
+    * @param id Id of the grain
+    * @tparam T Type of the grain
+    * @return The grain with the given id of the given type
     */
   override def get[T <: Grain with AnyRef: ClassTag: TypeTag](
       id: String): Option[T] = {

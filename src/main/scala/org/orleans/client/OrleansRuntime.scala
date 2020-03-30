@@ -77,13 +77,14 @@ object OrleansRuntime {
     }
   }
 
-  def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+  def getGrain[G <: Grain: ClassTag : TypeTag, Ref <: GrainReference: ClassTag](
       id: String,
       master: GrainRef): Future[Ref] = {
-    val tag = classTag[G]
+    val ct = classTag[G]
+    val tt = typeTag[G]
     val tagRef = classTag[Ref]
 
-    (master ? SearchGrainRequest(id, tag)).flatMap {
+    (master ? SearchGrainRequest(id, ct, tt)).flatMap {
       case value: SearchGrainResponse => {
         val address = value.address
         val port = value.port
@@ -118,10 +119,10 @@ class OrleansRuntime(private val host: String,
   def createGrain[G <: Grain: TypeTag: ClassTag](): Future[GrainRef] =
     OrleansRuntime.createGrain[G, GrainRef](master)
 
-  def getGrain[G <: Grain: ClassTag, Ref <: GrainReference: ClassTag](
+  def getGrain[G <: Grain: ClassTag : TypeTag, Ref <: GrainReference: ClassTag](
       id: String): Future[Ref] = OrleansRuntime.getGrain[G, Ref](id, master)
 
-  def getGrain[G <: Grain: ClassTag](id: String): Future[GrainRef] =
+  def getGrain[G <: Grain: ClassTag : TypeTag](id: String): Future[GrainRef] =
     OrleansRuntime.getGrain[G, GrainRef](id, master)
 
   def getHost() = host
