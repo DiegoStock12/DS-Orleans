@@ -16,6 +16,7 @@ import org.orleans.silo.utils.GrainState.GrainState
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)
@@ -45,9 +46,10 @@ class MasterGrain(_id: String, master: Master)
   implicit val ec: ExecutionContext = master.executionContext
 
   override def receive: Receive = {
-    case (request: SearchGrainRequest, sender: Sender) =>
+    case (request: SearchGrainRequest[_], sender: Sender) =>
       logger.debug("Master grain handling grain search request")
-      processGrainSearch(request, sender)
+      processGrainSearch(request, sender)(request.grainClass, request.grainType)
+
 
     case (request: CreateGrainRequest[_], sender: Sender) =>
       logger.debug("Master grain handling create grain request")
@@ -63,41 +65,67 @@ class MasterGrain(_id: String, master: Master)
 
   }
 
+
+
   /**
     * Processes a request for searching a grain and responds to the sender
     *
     * @param request
     * @param sender
     */
-  private def processGrainSearch(request: SearchGrainRequest,
-                                 sender: Sender): Unit = {
+  private def processGrainSearch[T <: Grain : ClassTag : TypeTag](request: SearchGrainRequest[T], sender: Sender): Unit = {
+    def activateGrain() = {
+      // Since the grain is not active anywhere but , activate it on the slave with the least load
+      val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
+
+      var slaveRef: GrainRef = null
+      if (!slaveGrainRefs.containsKey(slaveInfo)) {
+        slaveRef = GrainRef(slaveInfo.uuid, slaveInfo.host, slaveInfo.tcpPort)
+        slaveGrainRefs.put(slaveInfo.uuid, slaveRef)
+      } else {
+        slaveRef = slaveGrainRefs.get(slaveInfo)
+      }
+
+      logger.debug(s"No active grain, so sending an ActivationRequest to $slaveRef")
+
+      val result = slaveRef ? ActiveGrainRequest(request.id, request.grainClass, request.grainType)
+      result.onComplete{
+        case Success(response: ActiveGrainResponse) =>
+          // Notify the sender of the GrainSearch where the grain is active now
+          logger.debug(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
+          sender ! SearchGrainResponse(response.address, response.port)
+
+        case Failure(throwable: Throwable) =>
+          //TODO either notify the sender that it has failed or try again (possibly on another slave)
+          logger.error(throwable.toString)
+      }
+    }
+
     val id = request.id
     if (master.grainMap.containsKey(id)) {
-      val activeGrains: List[GrainInfo] = master.grainMap
-        .get(id)
-        .filter(grain => GrainState.InMemory.equals(grain.state))
+      val activeGrains: List[GrainInfo] = master.grainMap.get(id).filter(grain => GrainState.InMemory.equals(grain.state))
       if (activeGrains.nonEmpty) {
-        val leastLoadedGrain: GrainInfo =
-          activeGrains.reduceLeft((x, y) => if (x.load < y.load) x else y)
-        sender ! SearchGrainResponse(leastLoadedGrain.address,
-                                     leastLoadedGrain.port)
+
+        // Send the slave of the grain with the least load, to balance the load between grains
+        val slaveInfo: GrainInfo = activeGrains.reduceLeft((x, y) => if (x.load < y.load) x else y)
+        sender ! SearchGrainResponse(slaveInfo.address, slaveInfo.port)
+
+        return
       } else {
-        logger.warn("No active grain.")
-        // Activate grain
-        // Chose grain with least total load
-        val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
-          if (x.totalLoad < y.totalLoad) x else y)
-
-        var slaveRef: GrainRef = null
-        if (!slaveGrainRefs.containsKey(info)) {
-          slaveRef = GrainRef(info.uuid, info.host, info.tcpPort)
-          slaveGrainRefs.put(info.uuid, slaveRef)
-        } else {
-          slaveRef = slaveGrainRefs.get(info)
-        }
-
+        // If the grain is in the grainMap but not InMemory, activate it
+        activateGrain()
+        return
       }
-    } else {
+    }
+
+    // Check if the grain possibly still is defined in the database
+    logger.debug(s"Check if the grain possibly still is defined in the database, type: $typeTag")
+    val grain = GrainDatabase.instance.get[T](request.id)(request.grainClass, request.grainType)
+    if (grain.isDefined) {
+      // The grain does exist in the database so it can still be activated
+      activateGrain()
+    }
+    else {
       //TODO See how we manage exceptions in this side!
       sender ! SearchGrainResponse(null, 0)
     }

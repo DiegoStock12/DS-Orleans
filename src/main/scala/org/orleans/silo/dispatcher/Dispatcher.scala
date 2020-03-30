@@ -95,9 +95,17 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
   }
 
   /**
-    * Activates the existing grain.
-    */
-  def addActivation(id: String, grainTag: ClassTag[_ <: Grain]) = {}
+   * Activates an existing grain.
+   */
+  def addActivation(id: String, typeTag: TypeTag[T]): Unit = {
+    logger.debug(s"Adding Activation of grain with id $id to dispatcher with type ${typeTag.toString()}")
+    val grain : T = GrainDatabase.instance.get[T](id)(classTag, typeTag).get
+
+    val mailbox = new Mailbox(grain)
+
+    this.grainMap.put(mailbox, grain)
+    this.mailboxIndex.put(grain._id, mailbox)
+  }
 
   /**
     * Adds a master grain implementation, that will manage the requests for
@@ -160,7 +168,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
 
     // Deleting grain from database. Returned Future contains the deleted grain if successful
     // and otherwise a Failure with the exception
-    val result: Future[T] = GrainDatabase.instance.delete[T](id)
+    val result: Future[Boolean] = GrainDatabase.instance.delete(id)
 
     this.clientReceiver.mailboxIndex.remove(id)
   }

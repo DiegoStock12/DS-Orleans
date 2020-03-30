@@ -9,7 +9,13 @@ import scala.reflect.runtime.universe._
 
 object GrainDatabase extends LazyLogging {
   private var applicationName: String = _
-  lazy val instance: GrainDatabase = new MongoGrainDatabase(applicationName)
+  var disableDatabase = false
+  lazy val instance: GrainDatabase =
+    if (disableDatabase) {
+      new StubDatabase()
+    } else {
+      new MongoGrainDatabase(applicationName)
+    }
   def setApplicationName(name: String) = {
     if (applicationName != null) {
       logger.error("Can't set application name twice")
@@ -24,7 +30,7 @@ trait GrainDatabase {
   def store[T <: Grain with AnyRef : ClassTag : TypeTag](grain: T): Future[Option[T]]
   def load[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T]
   def load[T <: Grain with AnyRef : ClassTag : TypeTag](fieldName: String, value: Any): Future[T]
-  def delete[T <: Grain with AnyRef : ClassTag : TypeTag](id: String): Future[T]
+  def delete(id: String): Future[Boolean]
 
   def contains(id: String): Boolean
 
