@@ -34,7 +34,7 @@ lazy val assemblySettings = Seq(
   test in assembly := {},
   assemblyMergeStrategy in assembly := {
     case PathList("META-INF", xs @ _*)  => MergeStrategy.discard
-    case "log4j.properties"             => MergeStrategy.first
+    case PathList("module-info.class", xs @ _*) => MergeStrategy.discard
     case x =>
       val oldStrategy = (assemblyMergeStrategy in assembly).value
       oldStrategy(x)
@@ -44,10 +44,10 @@ lazy val assemblySettings = Seq(
 assembly / mainClass := Some("org.orleans.Main")
 
 // make run command include the provided dependencies
-Compile / run  := Defaults.runTask(Compile / fullClasspath,
-  Compile / run / mainClass,
-  Compile / run / runner
-).evaluated
+//Compile / run  := Defaults.runTask(Compile / fullClasspath,
+//  Compile / run / mainClass,
+//  Compile / run / runner
+//).evaluated
 
 Compile / run / fork := true
 Global / cancelable := true
