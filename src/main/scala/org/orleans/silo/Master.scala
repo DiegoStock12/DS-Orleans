@@ -162,7 +162,7 @@ class Master(
 
   def startMainDispatcher() = {
     // Start dispatcher for the general grain
-    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort)
+    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort, Option(null))
     mainDispatcher.addMasterGrain(this)
     dispatchers = mainDispatcher :: dispatchers
 
@@ -368,13 +368,14 @@ class Master(
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
     logger.debug(s"Processing load data: ${packet.data}")
+    grainMap.forEach((k, v) => logger.warn(k + ":" + v))
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
           if (this.grainMap.containsKey(id)) {
             val grain: Option[GrainInfo] = this.grainMap
               .get(id)
-              .find(x => x.address.equals(host) && x.port.equals(port))
+              .find(x => resolve(x.address).equals(host))
             if (grain.isDefined) {
               val reportingGrain: GrainInfo = grain.get
               reportingGrain.load = load.toInt
@@ -392,6 +393,13 @@ class Master(
       }
     }
     logger.debug(s"${this.grainMap}")
+  }
+
+  def resolve(host: String): String = {
+    if (host.equals("localhost"))
+      "127.0.0.1"
+    else
+      host
   }
 
   /**

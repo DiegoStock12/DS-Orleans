@@ -36,7 +36,7 @@ class SlaveGrain(_id: String, slave: Slave)
     : Dispatcher[T] = {
     if (!slave.registeredGrains.exists(tuple => tuple._1 == classTag[T])) {
       logger.warn(s"Creating new dispatcher for class: ${typeTag}")
-      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
+      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort, Option(null))
       // Add the dispatchers to the dispatcher
       slave.dispatchers = dispatcher :: slave.dispatchers
 
@@ -55,7 +55,7 @@ class SlaveGrain(_id: String, slave: Slave)
         .head
         .asInstanceOf[Dispatcher[T]]
 
-      logger.warn(s"Found dispatcher for class: ${typeTag}")
+      logger.debug(s"Found dispatcher for class: ${typeTag}")
 
       dispatcher
     }
@@ -135,7 +135,7 @@ class SlaveGrain(_id: String, slave: Slave)
       logger.debug(
         s"Creating new dispatcher for class ${request.grainClass.runtimeClass}")
       // Create a new dispatcher for that and return its properties
-      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
+      val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort, Option(null))
       // Add the dispatchers to the dispatcher
       slave.dispatchers = dispatcher :: slave.dispatchers
       val id: String = dispatcher.addGrain(typeTag)
@@ -206,7 +206,6 @@ class SlaveGrain(_id: String, slave: Slave)
     // Add it to the grainMap
     logger.info(s"Adding activation to the slave grainmap id ${request.id}")
 
-    //TODO GrainMap has to differentiate grains by port also
     slave.grainMap.put(request.id, classTag[T])
 
     sender ! ActiveGrainResponse(slave.slaveConfig.host, dispatcher.port)

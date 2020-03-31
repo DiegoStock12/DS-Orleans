@@ -100,8 +100,12 @@ class MasterGrain(_id: String, master: Master)
           logger.debug(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
 
           val currentActivations: List[GrainInfo] = master.grainMap.getOrDefault(request.id, List())
-          master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
-            GrainState.InMemory, 0) :: currentActivations)
+          // Since master doesn't distinguish activations of the same grain on the same slave
+          // we just want to keep 1 element in a map corresponding to that grain in that slave
+          if (!currentActivations.exists(x => x.address.equals(response.address))) {
+            master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
+              GrainState.InMemory, 0) :: currentActivations)
+          }
 
           sender ! SearchGrainResponse(response.address, response.port)
 
@@ -173,13 +177,9 @@ class MasterGrain(_id: String, master: Master)
         logger.debug(s"Received response from a client! $resp")
         val grainInfo =
           GrainInfo(info.uuid, resp.address, resp.port, GrainState.InMemory, 0)
-        if (master.grainMap.containsKey(resp.id)) {
-          val currentGrains: List[GrainInfo] = master.grainMap.get(resp.id)
-          master.grainMap.replace(resp.id, grainInfo :: currentGrains)
-        } else {
+        if (!master.grainMap.containsKey(resp.id)) {
           master.grainMap.put(resp.id, List(grainInfo))
         }
-
         // Answer to the user
         sender ! resp
 
@@ -261,10 +261,12 @@ class MasterGrain(_id: String, master: Master)
       case Success(response: ActiveGrainResponse) =>
         // Notify the sender of the GrainSearch where the grain is active now
         logger.warn(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
+
         val currentActivations: List[GrainInfo] = master.grainMap.getOrDefault(request.id, List())
-        master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
-          GrainState.InMemory, 0) :: currentActivations)
-        println(master.grainMap)
+        if (!currentActivations.exists(x => x.address.equals(response.address))) {
+          master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
+            GrainState.InMemory, 0) :: currentActivations)
+        }
         sender ! ActiveGrainResponse(response.address, response.port)
 
       case Failure(throwable: Throwable) =>

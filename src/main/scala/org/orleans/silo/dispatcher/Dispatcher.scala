@@ -34,7 +34,7 @@ import scala.concurrent.Future
   * @param port port in which the dispatcher will be waiting for requests
   * @tparam T type of the grain that the dispatcher will serve
   */
-class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
+class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int, val registryFactory: Option[RegistryFactory])
     extends Runnable
     with LazyLogging {
 
@@ -59,7 +59,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
 
   // Create the message receiver and start it
   private val clientReceiver: ClientReceiver[T] =
-    new ClientReceiver[T](mailboxIndex, port)
+    new ClientReceiver[T](mailboxIndex, port, registryFactory)
   val cRecvThread: Thread = new Thread(clientReceiver)
   cRecvThread.setName(s"ClientReceiver-$port")
   cRecvThread.start()
@@ -80,7 +80,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
       .newInstance(id)
       .asInstanceOf[T]
     // Create a mailbox
-    val mbox: Mailbox = new Mailbox(grain)
+    val mbox: Mailbox = new Mailbox(grain, registryFactory)
 
     // Store the new grain to persistant storage
     logger.debug(s"Type of grain: $typeTag")
@@ -90,10 +90,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
     this.grainMap.put(mbox, grain)
 
     val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(id, List())
-    currentMailboxes.foreach(v => logger.warn(s"Current mailbox ${v.id} : ${v.length}"))
     this.clientReceiver.mailboxIndex.put(id, mbox :: currentMailboxes)
-    logger.warn(s"Putting newly created grain ${id} to mailbox")
-    this.clientReceiver.mailboxIndex.get(id).foreach(v => logger.warn(s"${v.id} : ${v.length}"))
     // Return the id of the grain
     id
   }
@@ -106,14 +103,11 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
       s"Adding Activation of grain with id $id to dispatcher with type ${typeTag.toString()}")
     val grain: T = GrainDatabase.instance.get[T](id)(classTag, typeTag).get
 
-    val mailbox = new Mailbox(grain)
+    val mailbox = new Mailbox(grain, registryFactory)
 
     this.grainMap.put(mailbox, grain)
     val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(grain._id, List())
-    currentMailboxes.foreach(v => logger.warn(s"Current mailbox ${v.id} : ${v.length}"))
-    logger.warn(s"Putting activation of grain ${id} to mailbox")
     this.clientReceiver.mailboxIndex.put(grain._id, mailbox :: currentMailboxes)
-    this.clientReceiver.mailboxIndex.get(id).foreach(v => logger.warn(s"${v.id} : ${v.length}"))
   }
 
   /**
@@ -130,7 +124,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
       .newInstance(id, master)
       .asInstanceOf[T]
     // Create a mailbox
-    val mbox: Mailbox = new Mailbox(grain)
+    val mbox: Mailbox = new Mailbox(grain, registryFactory)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
@@ -153,7 +147,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
       .newInstance(id, slave)
       .asInstanceOf[T]
     // Create a mailbox
-    val mbox: Mailbox = new Mailbox(grain)
+    val mbox: Mailbox = new Mailbox(grain, registryFactory)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)

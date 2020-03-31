@@ -54,31 +54,19 @@ object Testing {
     println(s"ID of the grain is $id")
 
     Thread.sleep(3000)
-    println("Try to activate other grain")
-    val resultActivate = g ? ActiveGrainRequest(id, classtag, typetag)
-    val mappedResultActivate = resultActivate.map {
-      case value: ActiveGrainResponse =>
-        println("Received ActiveGrainResponse!")
-        println(value)
-      case other => println(s"Something went wrong: $other")
-    }
-    Await.result(mappedResultActivate, 5 seconds)
-
-    Thread.sleep(5000)
+//    Create another activation to test replication on the same slave (to test, you need to start only 1 slave)
+//    println("Try to activate other grain")
+//    val resultActivate = g ? ActiveGrainRequest(id, classtag, typetag)
+//    val mappedResultActivate = resultActivate.map {
+//      case value: ActiveGrainResponse =>
+//        println("Received ActiveGrainResponse!")
+//        println(value)
+//      case other => println(s"Something went wrong: $other")
+//    }
+//    Await.result(mappedResultActivate, 5 seconds)
+//
+//    Thread.sleep(5000)
     println("Searching for the grain")
-
-    println("Try to activate other grain")
-    val resultActivate1 = g ? ActiveGrainRequest(id, classtag, typetag)
-    val mappedResultActivate1 = resultActivate1.map {
-      case value: ActiveGrainResponse =>
-        println("Received ActiveGrainResponse!")
-        println(value)
-      case other => println(s"Something went wrong: $other")
-    }
-    Await.result(mappedResultActivate1, 5 seconds)
-
-    Thread.sleep(5000)
-
     var port : Int = 0
 
     // Search for a grain
@@ -88,7 +76,7 @@ object Testing {
         port = value.port
       case Failure(exception) => exception.printStackTrace()
     }
-    Thread.sleep(5000)
+    Thread.sleep(1000)
 
     println("Sending hello to the greeter grain")
     val g2 : GrainRef = GrainRef(id, "localhost", port)
@@ -97,7 +85,7 @@ object Testing {
       case _ => "Not working"
     }
 
-    Thread.sleep(15000)
+    Thread.sleep(5000)
 //
     // Delete that grain
     println("Trying to delete grain")

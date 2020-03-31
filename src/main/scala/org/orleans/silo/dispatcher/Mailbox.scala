@@ -43,7 +43,7 @@ class Sender(private[dispatcher] val stream: ObjectOutputStream, id: String)
   * These are executable so they can be run and the messages can be received
   * @param grain Grain that the message queue makes reference to
   */
-private[dispatcher] class Mailbox(val grain: Grain)
+private[dispatcher] class Mailbox(val grain: Grain, val registryFactory: Option[RegistryFactory])
     extends Runnable
     with LazyLogging {
   private[dispatcher] val inbox = new LinkedBlockingQueue[Message]
@@ -85,8 +85,11 @@ private[dispatcher] class Mailbox(val grain: Grain)
       val msg: Message = inbox.poll()
       if (msg == null) return
       grain.receive((msg.msg, msg.sender))
-      val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
-      registry.addRequestHandled()
+      if (registryFactory.isDefined) {
+        val registry: Registry =
+          registryFactory.get.getOrCreateRegistry(id)
+        registry.addRequestHandled()
+      }
     }
     this.isRunning.set(false)
   }

@@ -19,7 +19,7 @@ import org.orleans.silo.metrics.{Registry, RegistryFactory}
   */
 @volatile
 class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]],
-                      client: Socket)
+                      val registryFactory: Option[RegistryFactory], client: Socket)
     extends Runnable
     with LazyLogging {
   val SLEEP_TIME: Int = 5
@@ -58,9 +58,11 @@ class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]]
             val mailboxes : List[Mailbox] = this.mailboxIndex.get(grainId)
             val mailboxToAdd: Mailbox = mailboxes.reduceLeft((x, y) => if (x.length < y.length) x else y)
             mailboxToAdd.addMessage(Message(grainId, msg, Sender(oos, requestId)))
-            val registry: Registry =
-              RegistryFactory.getOrCreateRegistry(grainId)
-            registry.addRequestReceived()
+            if (registryFactory.isDefined) {
+              val registry: Registry =
+                registryFactory.get.getOrCreateRegistry(grainId)
+              registry.addRequestReceived()
+            }
           } else {
             logger.error(s"Not existing mailbox for ID $grainId")
             this.mailboxIndex.forEach((k, v) => logger.error(s"$k --> $v"))
