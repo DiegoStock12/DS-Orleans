@@ -22,3 +22,42 @@ libraryDependencies ++= Seq(
 PB.targets in Compile := Seq(
   scalapb.gen() -> (sourceManaged in Compile).value
 )
+
+
+lazy val compilerOptions = Seq(
+  //  "-unchecked",
+  //  "-feature",
+  //  "-language:existentials",
+  //  "-language:higherKinds",
+  //  "-language:implicitConversions",
+  //  "-language:postfixOps",
+  //  "-deprecation",
+  "-encoding",
+  "utf8"
+)
+
+lazy val assemblySettings = Seq(
+  assemblyJarName in assembly := name.value + ".jar",
+  test in assembly := {},
+  assemblyMergeStrategy in assembly := {
+    case PathList("META-INF", xs @ _*)  => MergeStrategy.discard
+    case "log4j.properties"             => MergeStrategy.first
+    case x =>
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }
+)
+
+assembly / mainClass := Some("org.orleans.Main")
+
+// make run command include the provided dependencies
+Compile / run  := Defaults.runTask(Compile / fullClasspath,
+  Compile / run / mainClass,
+  Compile / run / runner
+).evaluated
+
+Compile / run / fork := true
+Global / cancelable := true
+
+// exclude Scala library from assembly
+assembly / assemblyOption  := (assembly / assemblyOption).value.copy(includeScala = false)
