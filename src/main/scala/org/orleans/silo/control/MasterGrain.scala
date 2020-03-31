@@ -20,7 +20,7 @@ import scala.reflect.runtime.universe._
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)
-    extends Grain(_id)
+  extends Grain(_id)
     with LazyLogging {
 
   private var slaveRefs: Circular[(SlaveInfo, GrainRef)] = null
@@ -41,8 +41,8 @@ class MasterGrain(_id: String, master: Master)
   }
 
   /**
-    * Execution context of the master to run the futures
-    */
+   * Execution context of the master to run the futures
+   */
   implicit val ec: ExecutionContext = master.executionContext
 
   override def receive: Receive = {
@@ -62,6 +62,10 @@ class MasterGrain(_id: String, master: Master)
       logger.info("Master handling update grain state request")
       processUpdateState(request)
 
+    //  For testing purposes
+    case (request: ActiveGrainRequest[_], sender: Sender) =>
+      logger.info("Master handling activate grain request")
+      processActivateGrain(request, sender)(request.grainClass, request.grainType)
   }
 
   /**
@@ -89,14 +93,16 @@ class MasterGrain(_id: String, master: Master)
       logger.debug(
         s"No active grain, so sending an ActivationRequest to $slaveRef")
 
-      val result = slaveRef ? ActiveGrainRequest(request.id,
-                                                 request.grainClass,
-                                                 request.grainType)
+      val result = slaveRef ? ActiveGrainRequest(request.id, request.grainClass, request.grainType)
       result.onComplete {
         case Success(response: ActiveGrainResponse) =>
           // Notify the sender of the GrainSearch where the grain is active now
-          logger.debug(
-            s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
+          logger.debug(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
+
+          val currentActivations: List[GrainInfo] = master.grainMap.getOrDefault(request.id, List())
+          master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
+            GrainState.InMemory, 0) :: currentActivations)
+
           sender ! SearchGrainResponse(response.address, response.port)
 
         case Failure(throwable: Throwable) =>
@@ -140,11 +146,11 @@ class MasterGrain(_id: String, master: Master)
   }
 
   /**
-    * Choose one slave to run the new grain
-    *
-    * @param request
-    * @param sender
-    */
+   * Choose one slave to run the new grain
+   *
+   * @param request
+   * @param sender
+   */
   private def processCreateGrain(request: CreateGrainRequest[_],
                                  sender: Sender): Unit = {
 
@@ -185,31 +191,29 @@ class MasterGrain(_id: String, master: Master)
   }
 
   /**
-    * Send the delete grain request to the appropriate Slave
-    *
-    * @param request
-    */
+   * Send the delete grain request to the appropriate Slave
+   *
+   * @param request
+   */
   private def processDeleteGrain(request: DeleteGrainRequest): Unit = {
     val id = request.id
     // Look for the slave that has that request
     if (master.grainMap.containsKey(id)) {
-      val grainInfos: List[GrainInfo] = master.grainMap.get(id)
-      grainInfos.foreach(grainInfo => {
-        // Send deletion request
-        var slaveRef: GrainRef = null
+      val grainInfo: GrainInfo = master.grainMap.get(id).head
+      // Send deletion request
+      var slaveRef: GrainRef = null
 
-        if (!slaveGrainRefs.containsKey(grainInfo.slave)) {
-          slaveRef = GrainRef(grainInfo.slave,
-                              grainInfo.address,
-                              master.slaves.get(grainInfo.slave).get.tcpPort)
-          slaveGrainRefs.put(grainInfo.slave, slaveRef)
-        } else {
-          slaveRef = slaveGrainRefs.get(grainInfo.slave)
-        }
+      if (!slaveGrainRefs.containsKey(grainInfo.slave)) {
+        slaveRef = GrainRef(grainInfo.slave,
+          grainInfo.address,
+          master.slaves.get(grainInfo.slave).get.tcpPort)
+        slaveGrainRefs.put(grainInfo.slave, slaveRef)
+      } else {
+        slaveRef = slaveGrainRefs.get(grainInfo.slave)
+      }
 
-        // Send request to the slave
-        slaveRef ! request
-      })
+      // Send request to the slave
+      slaveRef ! request
 
       // Delete from grainMap
       master.grainMap.remove(id)
@@ -238,6 +242,34 @@ class MasterGrain(_id: String, master: Master)
       master.grainMap
         .put(request.id, List(GrainInfo(slave, slave, port, newState, 0)))
     }
+  }
 
+  private def processActivateGrain[T <: Grain : ClassTag : TypeTag](request: ActiveGrainRequest[T], sender: Sender): Unit = {
+    // Since the grain is not active anywhere but , activate it on the slave with the least load
+    val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
+
+    var slaveRef: GrainRef = null
+    if (!slaveGrainRefs.containsKey(slaveInfo)) {
+      slaveRef = GrainRef(slaveInfo.uuid, slaveInfo.host, slaveInfo.tcpPort)
+      slaveGrainRefs.put(slaveInfo.uuid, slaveRef)
+    } else {
+      slaveRef = slaveGrainRefs.get(slaveInfo)
+    }
+
+    val result = slaveRef ? ActiveGrainRequest(request.id, request.grainClass, request.grainType)
+    result.onComplete {
+      case Success(response: ActiveGrainResponse) =>
+        // Notify the sender of the GrainSearch where the grain is active now
+        logger.warn(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
+        val currentActivations: List[GrainInfo] = master.grainMap.getOrDefault(request.id, List())
+        master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
+          GrainState.InMemory, 0) :: currentActivations)
+        println(master.grainMap)
+        sender ! ActiveGrainResponse(response.address, response.port)
+
+      case Failure(throwable: Throwable) =>
+        //TODO either notify the sender that it has failed or try again (possibly on another slave)
+        logger.error(throwable.toString)
+    }
   }
 }

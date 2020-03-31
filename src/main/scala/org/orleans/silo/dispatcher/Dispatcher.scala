@@ -52,8 +52,8 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
       .asInstanceOf[ThreadPoolExecutor]
 
   // Maps of Mailbox and grains linking them to an ID
-  private[dispatcher] val mailboxIndex: ConcurrentHashMap[String, Mailbox] =
-    new ConcurrentHashMap[String, Mailbox]()
+  private[dispatcher] val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]] =
+    new ConcurrentHashMap[String, List[Mailbox]]()
   private[dispatcher] val grainMap: ConcurrentMap[Mailbox, Grain] =
     new ConcurrentHashMap[Mailbox, Grain]()
 
@@ -88,8 +88,12 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
-    this.clientReceiver.mailboxIndex.put(id, mbox)
 
+    val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(id, List())
+    currentMailboxes.foreach(v => logger.warn(s"Current mailbox ${v.id} : ${v.length}"))
+    this.clientReceiver.mailboxIndex.put(id, mbox :: currentMailboxes)
+    logger.warn(s"Putting newly created grain ${id} to mailbox")
+    this.clientReceiver.mailboxIndex.get(id).foreach(v => logger.warn(s"${v.id} : ${v.length}"))
     // Return the id of the grain
     id
   }
@@ -105,7 +109,11 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
     val mailbox = new Mailbox(grain)
 
     this.grainMap.put(mailbox, grain)
-    this.mailboxIndex.put(grain._id, mailbox)
+    val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(grain._id, List())
+    currentMailboxes.foreach(v => logger.warn(s"Current mailbox ${v.id} : ${v.length}"))
+    logger.warn(s"Putting activation of grain ${id} to mailbox")
+    this.clientReceiver.mailboxIndex.put(grain._id, mailbox :: currentMailboxes)
+    this.clientReceiver.mailboxIndex.get(id).foreach(v => logger.warn(s"${v.id} : ${v.length}"))
   }
 
   /**
@@ -126,7 +134,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
-    this.clientReceiver.mailboxIndex.put(id, mbox)
+    this.clientReceiver.mailboxIndex.put(id, List(mbox))
 
     logger.debug(s"Created master grain with id $id")
     // Return the id of the grain
@@ -149,7 +157,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
 
     // Put the new grain and mailbox in the indexes so it can be found
     this.grainMap.put(mbox, grain)
-    this.clientReceiver.mailboxIndex.put(id, mbox)
+    this.clientReceiver.mailboxIndex.put(id, List(mbox))
 
     // Return the id of the grain
     logger.debug(s"Created slave grain with id $id")

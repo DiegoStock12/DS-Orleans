@@ -35,7 +35,7 @@ class SlaveGrain(_id: String, slave: Slave)
   private def getOrCreateDispatcher[T <: Grain: ClassTag: TypeTag]()
     : Dispatcher[T] = {
     if (!slave.registeredGrains.exists(tuple => tuple._1 == classTag[T])) {
-      logger.info(s"Creating new dispatcher for class: ${typeTag}")
+      logger.warn(s"Creating new dispatcher for class: ${typeTag}")
       val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
       // Add the dispatchers to the dispatcher
       slave.dispatchers = dispatcher :: slave.dispatchers
@@ -55,7 +55,7 @@ class SlaveGrain(_id: String, slave: Slave)
         .head
         .asInstanceOf[Dispatcher[T]]
 
-      logger.info(s"Found dispatcher for class: ${typeTag}")
+      logger.warn(s"Found dispatcher for class: ${typeTag}")
 
       dispatcher
     }
@@ -204,7 +204,9 @@ class SlaveGrain(_id: String, slave: Slave)
     dispatcher.addActivation(request.id, request.grainType)
 
     // Add it to the grainMap
-    logger.info(s"Adding to the slave grainmap id ${request.id}")
+    logger.info(s"Adding activation to the slave grainmap id ${request.id}")
+
+    //TODO GrainMap has to differentiate grains by port also
     slave.grainMap.put(request.id, classTag[T])
 
     sender ! ActiveGrainResponse(slave.slaveConfig.host, dispatcher.port)

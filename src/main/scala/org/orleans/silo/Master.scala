@@ -285,7 +285,7 @@ class Master(
     *
     * @param packet The handshake packet.
     * @param host   The host receiving from.
-    * @param port   The port receiving from.
+    * @param udpPort   The port receiving from.
     */
   def processHandshake(packet: Packet, host: String, udpPort: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.

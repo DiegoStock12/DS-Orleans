@@ -17,7 +17,7 @@ import collection.JavaConverters._
 class ClientCleanup(clientSockets: util.List[MessageReceiver])
     extends TimerTask
     with LazyLogging {
-  val CLIENT_REMOVE_TIME_SEC: Int = 10
+  val CLIENT_REMOVE_TIME_SEC: Int = 100000
   override def run(): Unit = {
     val toRemove: util.List[MessageReceiver] =
       new util.ArrayList[MessageReceiver]()
@@ -46,7 +46,7 @@ class ClientCleanup(clientSockets: util.List[MessageReceiver])
   }
 }
 class ClientReceiver[T <: Grain: ClassTag](
-    val mailboxIndex: ConcurrentHashMap[String, Mailbox],
+    val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]],
     port: Int)
     extends Runnable
     with LazyLogging {

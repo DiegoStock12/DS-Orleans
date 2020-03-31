@@ -18,8 +18,8 @@ import org.orleans.silo.metrics.{Registry, RegistryFactory}
   * It gets a message and associates it with the mailbox of that grain
   */
 @volatile
-class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbox],
-                      val client: Socket)
+class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]],
+                      client: Socket)
     extends Runnable
     with LazyLogging {
   val SLEEP_TIME: Int = 5
@@ -55,9 +55,9 @@ class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbox],
         case ((requestId: String, grainId: String, msg: Any)) =>
           if (this.mailboxIndex.containsKey(grainId)) {
             // Add a message to the queue
-            this.mailboxIndex
-              .get(grainId)
-              .addMessage(Message(grainId, msg, Sender(oos, requestId)))
+            val mailboxes : List[Mailbox] = this.mailboxIndex.get(grainId)
+            val mailboxToAdd: Mailbox = mailboxes.reduceLeft((x, y) => if (x.length < y.length) x else y)
+            mailboxToAdd.addMessage(Message(grainId, msg, Sender(oos, requestId)))
             val registry: Registry =
               RegistryFactory.getOrCreateRegistry(grainId)
             registry.addRequestReceived()
