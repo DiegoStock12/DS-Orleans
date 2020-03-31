@@ -26,15 +26,10 @@ class TwitterAccount(id: String) extends Grain(id) with LazyLogging {
   override def receive: Receive = {
     case (uname: SetUsername, _) => this.username = uname.name
     case (tweet: Tweet, _) => {
-      if (tweets.size >= 4500) {
-        logger.info(s"Jeej $username got ${tweets.size} tweets.")
-      }
-
       tweets = tweet :: tweets
     }
     case (t: GetTweetList, sender: Sender) => sender ! TweetList(tweets)
     case (follow: FollowUser, sender: Sender) => {
-      logger.info(s"$username now following: ${follow.name}")
       followers = follow.name :: followers
       sender ! TwitterSuccess()
     }
