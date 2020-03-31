@@ -46,14 +46,12 @@ lazy val assemblySettings = Seq(
 
 assembly / mainClass := Some("org.orleans.Main")
 
-// make run command include the provided dependencies
-//Compile / run  := Defaults.runTask(Compile / fullClasspath,
-//  Compile / run / mainClass,
-//  Compile / run / runner
-//).evaluated
+//make run command include the provided dependencies
+Compile / run  := Defaults.runTask(Compile / fullClasspath,
+  Compile / run / mainClass,
+  Compile / run / runner
+).evaluated
 
 Compile / run / fork := true
 Global / cancelable := true
 
-// exclude Scala library from assembly
-assembly / assemblyOption  := (assembly / assemblyOption).value.copy(includeScala = false)
