@@ -7,7 +7,10 @@ libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
 
 libraryDependencies ++= Seq(
   // ScalaPB dependencies
-  "org.json4s" %% "json4s-jackson" % "3.7.0-M2",
+  ("org.json4s" %% "json4s-jackson" % "3.7.0-M2").
+    exclude("com.fasterxml.jackson.core", "jackson-annotations").
+    exclude("com.fasterxml.jackson.core", "jackson-databind").
+    exclude("com.fasterxml.jackson.core", "jackson-core"),
   "org.mongodb.scala" %% "mongo-scala-driver" % "2.9.0",
 //  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
 //  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
