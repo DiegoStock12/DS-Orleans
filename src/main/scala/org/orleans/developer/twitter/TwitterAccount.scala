@@ -32,6 +32,7 @@ class TwitterAccount(id: String) extends Grain(id) with LazyLogging {
 
       tweets = tweet :: tweets
     }
+    case (t: GetTweetList, sender: Sender) => sender ! TweetList(tweets)
     case (follow: FollowUser, sender: Sender) => {
       logger.info(s"$username now following: ${follow.name}")
       followers = follow.name :: followers

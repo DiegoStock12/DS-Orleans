@@ -16,6 +16,8 @@ object TwitterMessages {
   case class FollowList(followList: List[String]) extends GrainPacket
   case class GetTweetListSize() extends GrainPacket
   case class TweetListSize(size: Int) extends GrainPacket
+  case class GetTweetList() extends GrainPacket
+  case class TweetList(tweets: List[Tweet]) extends GrainPacket
 
   case class TwitterSuccess() extends GrainPacket
   case class TwitterFailure(failure: String) extends GrainPacket

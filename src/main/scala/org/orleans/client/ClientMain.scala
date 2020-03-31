@@ -72,6 +72,7 @@ object ClientMain {
     //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
     println(s"That took ${System.currentTimeMillis() - time}ms")
 
+    println("Waiting 5 seconds so all tweets are processed.")
     Thread.sleep(5000)
     println(s"Now searching those $users users and get amount of tweets..")
     time = System.currentTimeMillis()
@@ -80,7 +81,24 @@ object ClientMain {
       val size = Await.result(user.getAmountOfTweets(), 50 seconds)
       println(s"wouter-${i} - $size tweets")
     }
-    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    println(s"Now searching those $users users and get all tweets.")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      val tweets = Await.result(user.getTweets(), 50 seconds)
+      println(s"wouter-${i} - ${tweets.size} tweets")
+    }
+    println(s"That took ${System.currentTimeMillis() - time}ms")
+
+    println(s"Now searching those $users users and get their timeline")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
+      val tweets = Await.result(user.getTimeline(twitter), 50 seconds)
+      println(s"wouter-${i} - ${tweets.size} tweets")
+    }
     println(s"That took ${System.currentTimeMillis() - time}ms")
 
   }

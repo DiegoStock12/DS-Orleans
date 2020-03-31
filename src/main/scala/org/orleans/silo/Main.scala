@@ -57,12 +57,23 @@ object Main {
       .setGrainPorts((1801 to 1810).toSet)
       .build()
 
+    val slave3 = Slave()
+      .registerGrain[Twitter]
+      .registerGrain[TwitterAccount]
+      .setHost("localhost")
+      .setTCPPort(2000)
+      .setUDPPort(2100)
+      .setMasterHost("localhost")
+      .setMasterTCPPort(1400)
+      .setMasterUDPPort(1500)
+      .setExecutionContext(ExecutionContext.global)
+      .setGrainPorts((2001 to 2010).toSet)
+      .build()
+
     master.start()
     slave.start()
     slave2.start()
-
-    Thread.sleep(1000 * 20)
-
+    slave3.start()
     //master.stop()
     //slave.stop()
   }

@@ -181,8 +181,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
         if (!mbox.isEmpty && mbox.isRunning.getAcquire() == false) {
           // if the mailbox is not empty schedule the mailbox
           // Executing the mailbox basically delivers all the messages
-          logger.info(this.grainMap.size().toString)
-          logger.info(s"Running mailbox ${mbox.id}")
+          logger.debug(s"Running mailbox ${mbox.id}")
           mbox.isRunning.set(true)
           pool.execute(mbox)
         }

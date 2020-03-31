@@ -29,10 +29,34 @@ class TwitterAcountRef extends GrainReference {
     }
   }
 
+  def getTweets(): Future[List[Tweet]] = {
+    (this.grainRef ? GetTweetList()) map {
+      case TweetList(tweets: List[String]) => tweets
+      case x                               => throw new IllegalArgumentException(x.toString)
+    }
+  }
+
   def getAmountOfTweets(): Future[Int] = {
     (this.grainRef ? GetTweetListSize()) map {
       case TweetListSize(tweetSize: Int) => tweetSize
       case x                             => throw new IllegalArgumentException(x.toString)
+    }
+  }
+
+  def getTimeline(twitter: TwitterRef, timestamp: Long = 0) = {
+    (getFollowingList()) flatMap { followers: List[String] =>
+      Future.traverse(followers) { user =>
+        twitter.getAccount(user)
+      }
+    } flatMap { followerRefs: List[TwitterAcountRef] =>
+      Future
+        .traverse(followerRefs) { ref =>
+          ref.getTweets()
+        }
+    } map {
+      _.flatten
+    } map {
+      _.filter(_.timestamp.toLong >= timestamp)
     }
   }
 
