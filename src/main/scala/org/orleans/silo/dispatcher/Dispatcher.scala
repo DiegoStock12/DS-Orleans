@@ -95,11 +95,12 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
   }
 
   /**
-   * Activates an existing grain.
-   */
+    * Activates an existing grain.
+    */
   def addActivation(id: String, typeTag: TypeTag[T]): Unit = {
-    logger.debug(s"Adding Activation of grain with id $id to dispatcher with type ${typeTag.toString()}")
-    val grain : T = GrainDatabase.instance.get[T](id)(classTag, typeTag).get
+    logger.debug(
+      s"Adding Activation of grain with id $id to dispatcher with type ${typeTag.toString()}")
+    val grain: T = GrainDatabase.instance.get[T](id)(classTag, typeTag).get
 
     val mailbox = new Mailbox(grain)
 
@@ -177,10 +178,12 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int)
     while (running) {
       // Iterate through the mailboxes and if one is not empty schedule it
       this.grainMap.forEach((mbox, _) => {
-        if (!mbox.isEmpty && !mbox.isRunning) {
+        if (!mbox.isEmpty && mbox.isRunning.getAcquire() == false) {
           // if the mailbox is not empty schedule the mailbox
           // Executing the mailbox basically delivers all the messages
-          logger.debug(s"Running mailbox ${mbox.id}")
+          logger.info(this.grainMap.size().toString)
+          logger.info(s"Running mailbox ${mbox.id}")
+          mbox.isRunning.set(true)
           pool.execute(mbox)
         }
       })

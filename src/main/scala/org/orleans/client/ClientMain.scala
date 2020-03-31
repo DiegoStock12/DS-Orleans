@@ -64,7 +64,7 @@ object ClientMain {
     for (i <- (1 to users)) {
       val user = Await.result(twitter.getAccount(s"wouter-${i}"), 50 seconds)
       var futures: List[Future[Any]] = List()
-      for (j <- (1 to 5000)) {
+      for (j <- (1 to 10000)) {
         user.tweet("I like dis")
       }
 
