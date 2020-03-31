@@ -7,3 +7,4 @@ HelloWorld*
 target/
 
 src/main/resources/MongodbConnection
+deployment/docker/orleans.jar

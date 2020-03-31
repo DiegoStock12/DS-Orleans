@@ -1,6 +1,6 @@
-FROM scalacenter/scala-docs:1.5
+FROM java:8-jdk-alpine
 
-# install git
-RUN apt-get update \
-    apt-get upgrade \
-    apt-get install git
+COPY . /orleans
+WORKDIR /orleans
+
+ENTRYPOINT ["java", "-jar", "orleans.jar"]
