@@ -100,6 +100,5 @@ object ClientMain {
       println(s"wouter-${i} - ${tweets.size} tweets")
     }
     println(s"That took ${System.currentTimeMillis() - time}ms")
-
   }
 }

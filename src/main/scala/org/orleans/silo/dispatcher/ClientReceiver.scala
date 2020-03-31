@@ -22,7 +22,9 @@ class ClientCleanup(clientSockets: util.List[MessageReceiver])
     val toRemove: util.List[MessageReceiver] =
       new util.ArrayList[MessageReceiver]()
 
-    for (client: MessageReceiver <- clientSockets.asScala) {
+    val iterator: util.Iterator[MessageReceiver] = clientSockets.iterator()
+    while (iterator.hasNext) {
+      val client = iterator.next()
       if (!client.isRunning()) {
         toRemove.add(client)
       }
