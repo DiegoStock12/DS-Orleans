@@ -142,7 +142,8 @@ class Master(
     * - Creates a packet-manager which handles incoming and outgoing packets.
     */
   def start() = {
-    logger.info(f"Now starting master with id: ${protocol.shortUUID(uuid)}.")
+    logger.info(
+      f"Now starting master with id: ${protocol.shortUUID(uuid)} on ${masterConfig.host}.")
     logger.info(f"Master got ${registeredGrains.size} grain(s) registered.")
     this.running = true
 
