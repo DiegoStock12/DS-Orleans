@@ -9,8 +9,16 @@ libraryDependencies ++= Seq(
   // ScalaPB dependencies
   ("org.json4s" %% "json4s-jackson" % "3.7.0-M2").
     exclude("com.fasterxml.jackson.core", "jackson-annotations").
-    exclude("com.fasterxml.jackson.core", "jackson-databind").
-    exclude("com.fasterxml.jackson.core", "jackson-core"),
+    exclude("com.fasterxml.jackson.core", "jackson-databind"),
+  ("com.fasterxml.jackson.core" % "jackson-core" % "2.10.1").
+    exclude("com.fasterxml.jackson.core", "jackson-annotations").
+    exclude("com.fasterxml.jackson.core", "jackson-databind"),
+  ("com.fasterxml.jackson.core" % "jackson-databind" % "2.10.1" from "file:///lib/jackson-databind-2.10.1.jar").
+    exclude("com.fasterxml.jackson.core", "jackson-annotations").
+    exclude("com.fasterxml.jackson.core", "jackson-databind"),
+  ("com.fasterxml.jackson.core" % "jackson-annotations" % "2.10.1" from "file:///lib/jackson-annotations-2.10.1.jar").
+    exclude("com.fasterxml.jackson.core", "jackson-annotations").
+    exclude("com.fasterxml.jackson.core", "jackson-databind"),
   "org.mongodb.scala" %% "mongo-scala-driver" % "2.9.0",
 //  "io.higherkindness" %% "mu-rpc-server" % "0.21.3",
 //  "io.higherkindness" %% "mu-rpc-channel" % "0.21.3",
