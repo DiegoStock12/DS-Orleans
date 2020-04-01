@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: slave
-        image: wzorgdrager/orleans:0.5
+        image: wzorgdrager/orleans:0.7
         args:
         - "1"
         - "slave"

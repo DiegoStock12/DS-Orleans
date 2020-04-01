@@ -15,8 +15,8 @@ object Main {
   def main(args: Array[String]): Unit = {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
-    GrainDatabase.setApplicationName("HelloWorld")
-    GrainDatabase.disableDatabase = true
+    GrainDatabase.setApplicationName("WouterTest")
+    GrainDatabase.disableDatabase = false
 
     /**
       * A simple test-scenario is run here.
