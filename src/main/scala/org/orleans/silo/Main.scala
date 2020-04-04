@@ -49,12 +49,12 @@ object Main {
       .registerGrain[TwitterAccount]
       .setHost("localhost")
       .setTCPPort(1800)
-      .setUDPPort(1900)
+      .setUDPPort(19010)
       .setMasterHost("localhost")
       .setMasterTCPPort(1400)
       .setMasterUDPPort(1500)
       .setExecutionContext(ExecutionContext.global)
-      .setGrainPorts((1801 to 1810).toSet)
+      .setGrainPorts((20000 to 20100).toSet)
       .build()
 
     val slave3 = Slave()
