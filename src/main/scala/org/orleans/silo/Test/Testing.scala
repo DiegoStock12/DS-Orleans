@@ -56,16 +56,16 @@ object Testing {
     Thread.sleep(3000)
 //    Create another activation to test replication on the same slave (to test, you need to start only 1 slave)
 //    println("Try to activate other grain")
-//    val resultActivate = g ? ActiveGrainRequest(id, classtag, typetag)
-//    val mappedResultActivate = resultActivate.map {
-//      case value: ActiveGrainResponse =>
-//        println("Received ActiveGrainResponse!")
-//        println(value)
-//      case other => println(s"Something went wrong: $other")
-//    }
-//    Await.result(mappedResultActivate, 5 seconds)
-//
-//    Thread.sleep(5000)
+    val resultActivate = g ? ActiveGrainRequest(id, classtag, typetag)
+    val mappedResultActivate = resultActivate.map {
+      case value: ActiveGrainResponse =>
+        println("Received ActiveGrainResponse!")
+        println(value)
+      case other => println(s"Something went wrong: $other")
+    }
+    Await.result(mappedResultActivate, 5 seconds)
+
+    Thread.sleep(5000)
     println("Searching for the grain")
     var port : Int = 0
 
@@ -80,17 +80,20 @@ object Testing {
 
     println("Sending hello to the greeter grain")
     val g2 : GrainRef = GrainRef(id, "localhost", port)
-    g2 ? "hello" onComplete{
-      case Success(value) => println(value)
-      case _ => "Not working"
+    for (i ← (1 to 1000)) {
+      g2 ! s"hello from $i"
     }
+//    g2 ? "hello" onComplete{
+//      case Success(value) => println(value)
+//      case _ => "Not working"
+//    }
 
     Thread.sleep(5000)
 //
     // Delete that grain
-    println("Trying to delete grain")
-    // Try to delete the grain
-    g ! DeleteGrainRequest(id)
+//    println("Trying to delete grain")
+//    // Try to delete the grain
+//    g ! DeleteGrainRequest(id)
 
   }
 

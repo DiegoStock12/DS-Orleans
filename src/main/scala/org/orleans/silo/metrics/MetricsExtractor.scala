@@ -8,8 +8,8 @@ object MetricsExtractor {
    * @return Number of pending requests.
    */
   def getPendingRequests(registry: Registry): Int = {
-    val started = registry.requestsReceived
-    val handled = registry.requestsHandled
+    val started = registry.requestsReceived.get()
+    val handled = registry.requestsHandled.get()
     started - handled
   }
 

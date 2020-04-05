@@ -22,5 +22,8 @@ class GreeterGrain(_id: String) extends Grain(_id) with LazyLogging {
       // Answer to the sender of the message
       // Asynchronous response
       sender ! "Hello World!"
+    case (msg: String, _) =>
+      Thread.sleep(25)
+      logger.info(s"Received message $msg")
   }
 }

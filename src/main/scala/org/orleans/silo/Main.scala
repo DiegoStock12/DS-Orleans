@@ -50,8 +50,8 @@ object Main {
       .registerGrain[TwitterAccount]
       .registerGrain[GreeterGrain]
       .setHost("localhost")
-      .setTCPPort(1800)
-      .setUDPPort(1900)
+      .setTCPPort(2800)
+      .setUDPPort(2900)
       .setMasterHost("localhost")
       .setMasterTCPPort(1400)
       .setMasterUDPPort(1500)

@@ -106,6 +106,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int, val registryFacto
     val mailbox = new Mailbox(grain, registryFactory)
 
     this.grainMap.put(mailbox, grain)
+    this.grainMap.forEach((mbox, grain) => logger.info(s"Mailbox ${mbox.id} --> $grain"))
     val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(grain._id, List())
     this.clientReceiver.mailboxIndex.put(grain._id, mailbox :: currentMailboxes)
   }
@@ -188,6 +189,7 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int, val registryFacto
           pool.execute(mbox)
         }
       })
+      Thread.sleep(SLEEP_TIME)
     }
   }
 
