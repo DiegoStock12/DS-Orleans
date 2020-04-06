@@ -1,29 +1,22 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: orleans-client
+  name: orleans-client-scenario-3-5-slaves
   namespace: orleans
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: orleans
-      component: client
+  completions: 1
   template:
-    metadata:
-      labels:
-        app: orleans
-        component: client
     spec:
       containers:
       - name: client
-        image: wzorgdrager/orleans:0.7
+        image: wzorgdrager/orleans:1.8
         args:
         - "1"
         - "client"
-        - "1"
+        - "3"
         - "master.orleans"
         - "1400"
+      restartPolicy: Never
     env:
     - name: HOSTNAME
       valueFrom:

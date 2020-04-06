@@ -17,9 +17,9 @@ spec:
     spec:
       containers:
       - name: master
-        image: wzorgdrager/orleans:0.7
+        image: wzorgdrager/orleans:1.7
         args:
-        - "1"
+        - "0"
         - "master"
         - "1400"
         - "1500"

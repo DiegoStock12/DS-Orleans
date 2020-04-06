@@ -7,12 +7,15 @@ import org.orleans.developer.twitter.{
   TwitterAcountRef,
   TwitterRef
 }
+
+import scala.concurrent.ExecutionContext.Implicits.global
 import org.orleans.silo.Main.setLevel
 import org.orleans.silo.storage.{GrainDatabase, MongoGrainDatabase}
 import org.orleans.silo.{Master, Slave}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object Main {
 
@@ -36,7 +39,8 @@ object Main {
       }
       case _ =>
         new RuntimeException(
-          "Unknown command, please specify if you want to start a master, client or slave.")
+          "Unknown command, please specify if you want to start a master, client or slave."
+        )
     }
   }
 
@@ -48,14 +52,17 @@ object Main {
           isInt(udpPort) &&
           isInt(grainPortStart) &&
           isInt(graintPortEnd) =>
-      runMaster(sys.env("HOSTNAME"),
-                tcpPort.toInt,
-                udpPort.toInt,
-                grainPortStart.toInt,
-                graintPortEnd.toInt)
+      runMaster(
+        sys.env("HOSTNAME") + ".orleans",
+        tcpPort.toInt,
+        udpPort.toInt,
+        grainPortStart.toInt,
+        graintPortEnd.toInt
+      )
     case _ =>
       throw new RuntimeException(
-        "Unknown command, run as: 'master TCPPORT UDPPORT GRAINPORTSTART GRAINPORTEND'")
+        "Unknown command, run as: 'master TCPPORT UDPPORT GRAINPORTSTART GRAINPORTEND'"
+      )
   }
 
   //TCPPORT UDPPORT GRAINPORTSTART GRAINPORTEND MASTERHOST MASTERTCP MASTERUDP
@@ -68,17 +75,20 @@ object Main {
           isInt(graintPortEnd) &&
           isInt(masterTCP) &&
           isInt(masterUDP) =>
-      runSlave(sys.env("HOSTNAME"),
-               tcpPort.toInt,
-               udpPort.toInt,
-               grainPortStart.toInt,
-               graintPortEnd.toInt,
-               masterHost,
-               masterTCP.toInt,
-               masterUDP.toInt)
+      runSlave(
+        sys.env("HOSTNAME") + ".slave-headless.orleans",
+        tcpPort.toInt,
+        udpPort.toInt,
+        grainPortStart.toInt,
+        graintPortEnd.toInt,
+        masterHost,
+        masterTCP.toInt,
+        masterUDP.toInt
+      )
     case _ =>
       throw new RuntimeException(
-        "Unknown command, run as: 'slave TCPPORT UDPPORT GRAINPORTSTART GRAINPORTEND MASTERHOST MASTERTCP MASTERUDP'")
+        "Unknown command, run as: 'slave TCPPORT UDPPORT GRAINPORTSTART GRAINPORTEND MASTERHOST MASTERTCP MASTERUDP'"
+      )
   }
 
   def processClientArgs(args: List[String]) = args match {
@@ -87,28 +97,29 @@ object Main {
       runClientScenario(scenarioId.toInt, masterHost, masterTCP.toInt)
     case _ =>
       throw new RuntimeException(
-        "Unknown command, run as: 'client SCENARIOID MASTERHOST MASTERTCP")
+        "Unknown command, run as: 'client SCENARIOID MASTERHOST MASTERTCP"
+      )
   }
 
   def runClientScenario(id: Int, masterHost: String, masterTCP: Int) = {
     println(s"Now trying to run scenario $id.")
     id match {
       case 1 => runClientScenarioOne(masterHost, masterTCP)
+      case 2 => runClientScenarioTwo(masterHost, masterTCP)
+      case 3 => runClientScenarioThree(masterHost, masterTCP)
       case _ => throw new RuntimeException("Can't find client scenario.")
     }
     println(
-      s"Running scenario $id finished. Now running until explicitly stopped.")
-
-    while (true) {
-      Thread.sleep(1000)
-    }
+      s"Running scenario $id finished."
+    )
   }
 
   def runMaster(host: String,
                 tcp: Int,
                 udp: Int,
                 grainPortStart: Int,
-                graintPortEnd: Int): Unit =
+                graintPortEnd: Int): Unit = {
+    GrainDatabase.disableDatabase = true
     Master()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
@@ -119,6 +130,7 @@ object Main {
       .setGrainPorts((grainPortStart to graintPortEnd).toSet)
       .build()
       .start()
+  }
 
   def runSlave(host: String,
                tcp: Int,
@@ -127,7 +139,8 @@ object Main {
                graintPortEnd: Int,
                masterHost: String,
                masterTCP: Int,
-               masterUDP: Int): Unit =
+               masterUDP: Int): Unit = {
+    GrainDatabase.disableDatabase = true
     Slave()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
@@ -141,9 +154,11 @@ object Main {
       .setMasterUDPPort(masterUDP.toInt)
       .build()
       .start()
+  }
 
   def runClientScenarioOne(masterHost: String, tcpPort: Int) = {
     GrainDatabase.disableDatabase = true
+    println(GrainDatabase.instance)
     val runtime = OrleansRuntime()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
@@ -244,6 +259,50 @@ object Main {
       println(s"wouter-${i} - ${tweets.size} tweets")
     }
     println(s"That took ${System.currentTimeMillis() - time}ms")
+  }
+
+  def runClientScenarioThree(masterHost: String, tcpPort: Int): Unit = {
+    GrainDatabase.disableDatabase = true
+    val runtime = OrleansRuntime()
+      .registerGrain[Twitter]
+      .registerGrain[TwitterAccount]
+      .setHost(masterHost)
+      .setPort(tcpPort)
+      .build()
+
+    var time = System.currentTimeMillis()
+    val twitterFuture: Future[TwitterRef] =
+      runtime.createGrain[Twitter, TwitterRef]()
+    val twitter = Await.result(twitterFuture, 5 seconds)
+    println(
+      s"Creating a Twitter grain took ${System.currentTimeMillis() - time}ms")
+
+    val users = 100000
+    println(s"Now creating $users users.")
+    time = System.currentTimeMillis()
+    for (i <- (1 to users)) {
+      val user: TwitterAcountRef =
+        Await.result(twitter.createAccount(s"test-${i}"), 5 seconds)
+    }
+
+    var run = true
+    Future
+      .sequence((1 to users).toList.map(i => twitter.createAccount(s"test-$i")))
+      .onComplete {
+        case Success(list) => {
+          println(s"That took ${System.currentTimeMillis() - time}ms")
+          run = false
+        }
+        case Failure(exception) => {
+          println(exception)
+          run = false
+        }
+      }
+
+    while (run) {
+      Thread.sleep(50)
+    }
+    //Await.result(twitter.createAccount(s"wouter-${i}"), 1 seconds)
   }
 
   /** Very hacky way to set the log level */

@@ -4,7 +4,8 @@ metadata:
   name: slave
   namespace: orleans
 spec:
-  replicas: 1
+  replicas: 5
+  serviceName: slave-headless
   selector:
     matchLabels:
       app: orleans
@@ -17,9 +18,9 @@ spec:
     spec:
       containers:
       - name: slave
-        image: wzorgdrager/orleans:0.7
+        image: wzorgdrager/orleans:1.7
         args:
-        - "1"
+        - "0"
         - "slave"
         - "1400"
         - "1500"
@@ -44,5 +45,6 @@ spec:
     env:
     - name: HOSTNAME
       valueFrom:
-        fieldRef:
-          fieldPath: metadata.name
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
