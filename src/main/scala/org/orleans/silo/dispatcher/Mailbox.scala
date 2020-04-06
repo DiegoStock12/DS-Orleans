@@ -3,6 +3,7 @@ package org.orleans.silo.dispatcher
 import java.io.ObjectOutputStream
 import java.net.Socket
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
@@ -62,7 +63,7 @@ private[dispatcher] class Mailbox(val grain: Grain)
   }
 
   @volatile
-  var isRunning: Boolean = false
+  var isRunning: AtomicBoolean = new AtomicBoolean(false)
 
   /**
     * To check if the mailbox is empty
@@ -79,7 +80,7 @@ private[dispatcher] class Mailbox(val grain: Grain)
     // Run until inbox is empty
     // TODO maybe this could be preempted so there's no
     // starvation if a grain has a lot of messages
-    this.isRunning = true
+    this.isRunning.set(true)
     while (inbox.peek() != null) {
       val msg: Message = inbox.poll()
       if (msg == null) return
@@ -87,7 +88,7 @@ private[dispatcher] class Mailbox(val grain: Grain)
       val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
       registry.addRequestHandled()
     }
-    this.isRunning = false
+    this.isRunning.set(false)
   }
 
   /**

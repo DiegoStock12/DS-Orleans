@@ -19,7 +19,6 @@ class Twitter(id: String) extends Grain(id) {
       }
     }
     case (user: UserCreate, sender: Sender) => //Add user here
-      //println(s"Added user ${user.username}")
       accounts = Map(user.username -> user.ref) ++ accounts
       sender ! TwitterSuccess()
     case (user: UserGet, sender: Sender) => {

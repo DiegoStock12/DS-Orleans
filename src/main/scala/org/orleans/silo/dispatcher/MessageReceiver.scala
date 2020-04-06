@@ -17,8 +17,9 @@ import org.orleans.silo.metrics.{Registry, RegistryFactory}
   * This thread just takes the messages and puts them in the appropriate mailbox.
   * It gets a message and associates it with the mailbox of that grain
   */
+@volatile
 class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbox],
-                      client: Socket)
+                      val client: Socket)
     extends Runnable
     with LazyLogging {
   val SLEEP_TIME: Int = 5
@@ -31,20 +32,23 @@ class MessageReceiver(val mailboxIndex: ConcurrentHashMap[String, Mailbox],
   override def run(): Unit = {
     logger.info(
       s"Starting receiving messages for ${client.getInetAddress}:${client.getPort}.")
+
     val oos: ObjectOutputStream = new ObjectOutputStream(client.getOutputStream)
     val ois: ObjectInputStream = new ObjectInputStream(client.getInputStream)
     lastReceivedMessage = System.currentTimeMillis()
     while (running) {
       var request: Any = null
       try {
-        request = ois.readObject()
+
+        request = ois.readObject().asInstanceOf[(String, String, Any)]
         lastReceivedMessage = System.currentTimeMillis()
       } catch {
-        case exception: IOException => {
+        case exception: Exception => {
           running = false
           return
         }
       }
+
       // Match the request we just received
       request match {
         // We'll be expecting something like this

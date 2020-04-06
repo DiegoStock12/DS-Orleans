@@ -159,7 +159,8 @@ class Slave(
     * - Creates a packet-manager which handles incoming and outgoing packets.
     */
   def start() = {
-    logger.info(f"Now starting slave with id: ${protocol.shortUUID(uuid)}.")
+    logger.info(
+      f"Now starting slave with id: ${protocol.shortUUID(uuid)} on ${slaveConfig.host}.")
     this.running = true
 
     // Starting a packet manager which listens for incoming packets.

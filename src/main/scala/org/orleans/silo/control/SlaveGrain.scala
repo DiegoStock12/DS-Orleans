@@ -24,7 +24,7 @@ class SlaveGrain(_id: String, slave: Slave)
     extends Grain(_id)
     with LazyLogging {
 
-  logger.info("SLAVE GRAIN RUNNING!")
+  logger.info("Started slave grain.")
 
   /**
     * Helper method to retrieve a dispatcher of a certain type and create it if it doesn't exit yet
@@ -32,7 +32,8 @@ class SlaveGrain(_id: String, slave: Slave)
     * @tparam T Type of the dispatcher that is
     * @return Dispatcher of correct type
     */
-  private def getOrCreateDispatcher[T <: Grain : ClassTag : TypeTag](): Dispatcher[T] = {
+  private def getOrCreateDispatcher[T <: Grain: ClassTag: TypeTag]()
+    : Dispatcher[T] = {
     if (!slave.registeredGrains.exists(tuple => tuple._1 == classTag[T])) {
       logger.info(s"Creating new dispatcher for class: ${typeTag}")
       val dispatcher: Dispatcher[T] = new Dispatcher[T](slave.getFreePort)
@@ -40,15 +41,19 @@ class SlaveGrain(_id: String, slave: Slave)
       slave.dispatchers = dispatcher :: slave.dispatchers
 
       // Create and run the dispatcher Thread
-      val newDispatcherThread : Thread = new Thread(dispatcher)
-      newDispatcherThread.setName(s"Dispatcher-${slave.shortId}-${classTag[T].runtimeClass.getName}")
+      val newDispatcherThread: Thread = new Thread(dispatcher)
+      newDispatcherThread.setName(
+        s"Dispatcher-${slave.shortId}-${classTag[T].runtimeClass.getName}")
       newDispatcherThread.start()
       dispatcher
 
     } else {
-      val dispatcher: Dispatcher[T] = slave.dispatchers.filter {
-        _.isInstanceOf[Dispatcher[T]]
-      }.head.asInstanceOf[Dispatcher[T]]
+      val dispatcher: Dispatcher[T] = slave.dispatchers
+        .filter {
+          _.isInstanceOf[Dispatcher[T]]
+        }
+        .head
+        .asInstanceOf[Dispatcher[T]]
 
       logger.info(s"Found dispatcher for class: ${typeTag}")
 
@@ -80,7 +85,8 @@ class SlaveGrain(_id: String, slave: Slave)
       }
 
     case (request: ActiveGrainRequest[_], sender: Sender) =>
-      processGrainActivation(request, sender)(request.grainClass, request.grainType)
+      processGrainActivation(request, sender)(request.grainClass,
+                                              request.grainType)
 
     case other =>
       logger.error(s"Unexpected message in the slave grain $other")
@@ -171,7 +177,6 @@ class SlaveGrain(_id: String, slave: Slave)
 
     println(s"$dispatcher - ${dispatcher.port}")
 
-
     GrainDatabase.instance.delete(request.id).onComplete {
       case Success(_) =>
         // Grain was successfully deleted from the database, now removing from dispatcher
@@ -190,7 +195,9 @@ class SlaveGrain(_id: String, slave: Slave)
     * @param sender Sender that requested the grain activation
     * @tparam T Type of the grain that should be activated
     */
-  def processGrainActivation[T <: Grain : ClassTag : TypeTag](request: ActiveGrainRequest[T], sender: Sender): Unit = {
+  def processGrainActivation[T <: Grain: ClassTag: TypeTag](
+      request: ActiveGrainRequest[T],
+      sender: Sender): Unit = {
 
     val dispatcher: Dispatcher[T] = getOrCreateDispatcher[T]()
 
@@ -202,6 +209,5 @@ class SlaveGrain(_id: String, slave: Slave)
 
     sender ! ActiveGrainResponse(slave.slaveConfig.host, dispatcher.port)
   }
-
 
 }

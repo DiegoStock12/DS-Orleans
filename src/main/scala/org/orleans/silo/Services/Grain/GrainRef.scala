@@ -12,6 +12,7 @@ import java.util.{Collections, UUID}
 import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap}
 
 import com.typesafe.scalalogging.LazyLogging
+import org.orleans.silo.control.GrainPacket
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Future, Promise}
@@ -23,23 +24,36 @@ object GrainRef extends LazyLogging {
 }
 
 trait GrainReference {
+  @volatile
   var grainRef: GrainRef = _
+
+  @volatile
   var masterRef: GrainRef = _
+
   def setGrainRef(grainRef: GrainRef) = this.grainRef = grainRef
   def setMasterGrain(master: GrainRef) = this.masterRef = master
 }
 
 // TODO maybe for fire and forget we could use DatagramSocket, but then
 // we could not be sure that it has been received
+@volatile
 class GrainRef private (val id: String, val address: String, val port: Int)
     extends LazyLogging
     with Runnable
     with GrainReference {
 
-  private var s: Socket = _
+  @volatile
+  private var s: Socket = null
+
+  @volatile
   private var outStream: ObjectOutputStream = _
+
+  @volatile
   private var inStream: ObjectInputStream = _
+
   private var currentListener: Thread = _
+
+  @volatile
   private var connectionOpened = false
 
   private val expectedMessages: ConcurrentHashMap[String, Promise[Any]] =
@@ -64,10 +78,12 @@ class GrainRef private (val id: String, val address: String, val port: Int)
     */
   private[this] def sendMessage(msg: Any, id: String) = {
     verifyConnection()
+    //println(s"Fire $id : $msg")
     try {
       outStream.writeObject(("", id, msg))
     } catch {
-      case exception: Exception => println(exception)
+      case exception: Exception =>
+        println(s"Exception in fire: ${exception.getMessage}")
 
     }
     outStream.flush()
@@ -96,9 +112,9 @@ class GrainRef private (val id: String, val address: String, val port: Int)
     val uuid = UUID.randomUUID().toString
     val promise = Promise[Any]()
     expectedMessages.put(uuid, promise)
+    //println(s"Sending now: $msg")
     outStream.writeObject((uuid, id, msg))
     outStream.flush()
-
     promise.future
   }
 
@@ -108,7 +124,8 @@ class GrainRef private (val id: String, val address: String, val port: Int)
     while (connectionOpened) {
       try {
         var incoming: (String, Any) = null
-        incoming = inStream.readObject().asInstanceOf[(String, Any)]
+
+        incoming = inStream.readObject().asInstanceOf[(String, GrainPacket)]
 
         if (expectedMessages.size() == 0) {
           unExpectedMessages.put(incoming._1, incoming._2)
@@ -133,16 +150,19 @@ class GrainRef private (val id: String, val address: String, val port: Int)
           }
         }
       } catch {
-        case exception: IOException => {
+        case exception: Exception => {
           connectionOpened = false
           return
         }
       }
+
+      Thread.sleep(10)
+
     }
   }
 
   def verifyConnection(): Unit = {
-    if (!connectionOpened) {
+    if (!connectionOpened || s == null || s.isClosed) {
       connectionOpened = true
       s = new Socket(address, port)
       outStream = new ObjectOutputStream(s.getOutputStream)
