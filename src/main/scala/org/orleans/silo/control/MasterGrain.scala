@@ -52,7 +52,7 @@ class MasterGrain(_id: String, master: Master)
 
     case (request: CreateGrainRequest[_], sender: Sender) =>
       logger.debug("Master grain handling create grain request")
-      processCreateGrain(request, sender)
+      processCreateGrain(request, sender)(request.grainClass, request.grainType)
 
     case (request: DeleteGrainRequest, _) =>
       logger.debug("Master handling delete grain request")
@@ -120,6 +120,7 @@ class MasterGrain(_id: String, master: Master)
       val activeGrains: List[GrainInfo] = master.grainMap
         .get(id)
         .filter(grain => GrainState.InMemory.equals(grain.state))
+      logger.warn(activeGrains.size.toString)
       if (activeGrains.nonEmpty) {
 
         // Send the slave of the grain with the least load, to balance the load between grains
@@ -155,7 +156,7 @@ class MasterGrain(_id: String, master: Master)
    * @param request
    * @param sender
    */
-  private def processCreateGrain(request: CreateGrainRequest[_],
+  private def processCreateGrain[T <: Grain: ClassTag: TypeTag](request: CreateGrainRequest[T],
                                  sender: Sender): Unit = {
 
     // Now get the least loaded slave
@@ -239,14 +240,15 @@ class MasterGrain(_id: String, master: Master)
       })
     } else {
       logger.warn("Master notified about the grain it didn't know about!")
-      master.grainMap
-        .put(request.id, List(GrainInfo(slave, slave, port, newState, 0)))
+//      master.grainMap
+//        .put(request.id, List(GrainInfo(slave, slave, port, newState, 0)))
     }
   }
 
   private def processActivateGrain[T <: Grain : ClassTag : TypeTag](request: ActiveGrainRequest[T], sender: Sender): Unit = {
     // Since the grain is not active anywhere but , activate it on the slave with the least load
     val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
+    logger.warn("Selected slave on port:" + slaveInfo.tcpPort + " to activate grain.")
 
     var slaveRef: GrainRef = null
     if (!slaveGrainRefs.containsKey(slaveInfo)) {
@@ -263,7 +265,7 @@ class MasterGrain(_id: String, master: Master)
         logger.warn(s"Grain with id ${request.id} now active on slave $slaveRef, sending this info back to $sender")
 
         val currentActivations: List[GrainInfo] = master.grainMap.getOrDefault(request.id, List())
-        if (!currentActivations.exists(x => x.address.equals(response.address))) {
+        if (!currentActivations.exists(x => x.address.equals(response.address) && x.port.equals(response.port))) {
           master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
             GrainState.InMemory, 0) :: currentActivations)
         }

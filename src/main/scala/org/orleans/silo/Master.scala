@@ -5,18 +5,11 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.communication.ConnectionProtocol.{
-  Packet,
-  PacketType,
-  SlaveInfo
-}
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
+import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.control.MasterGrain
 import org.orleans.silo.dispatcher.Dispatcher
+import org.orleans.silo.metrics.LoadMonitor
 import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
@@ -31,7 +24,8 @@ case class GrainInfo(slave: String,
                      address: String,
                      port: Int,
                      var state: GrainState,
-                     var load: Int)
+                     var load: Int
+                    )
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -158,6 +152,10 @@ class Master(
     // Starting the dispatchers
     logger.debug("Starting Main dispatcher.")
     startMainDispatcher()
+
+    // Starting load monitor
+    logger.debug("Starting Load Monitor.")
+    startLoadMonitor()
   }
 
   def startMainDispatcher() = {
@@ -171,6 +169,14 @@ class Master(
     mainDispatcherThread.setName(
       s"Master-${this.masterConfig.host}-MainDispatcher")
     mainDispatcherThread.start()
+  }
+
+  def startLoadMonitor() = {
+    val loadMonitor = new LoadMonitor(grainMap)
+    val loadMonitorThread: Thread = new Thread(loadMonitor)
+    loadMonitorThread.setName(
+      s"Master-${this.masterConfig.host}-LoadMonitor")
+    loadMonitorThread.start()
   }
 
   /**
@@ -367,15 +373,15 @@ class Master(
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.debug(s"Processing load data: ${packet.data}")
-    grainMap.forEach((k, v) => logger.warn(k + ":" + v))
+    logger.debug(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
+    grainMap.forEach((k, v) => logger.debug(k + ":" + v))
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
           if (this.grainMap.containsKey(id)) {
             val grain: Option[GrainInfo] = this.grainMap
               .get(id)
-              .find(x => resolve(x.address).equals(host))
+              .find(x => x.slave.equals(packet.uuid))
             if (grain.isDefined) {
               val reportingGrain: GrainInfo = grain.get
               reportingGrain.load = load.toInt
@@ -395,13 +401,6 @@ class Master(
     logger.debug(s"${this.grainMap}")
   }
 
-  def resolve(host: String): String = {
-    if (host.equals("localhost"))
-      "127.0.0.1"
-    else
-      host
-  }
-
   /**
     * Calculates the loads of each slave as the sum of loads of each grain on a slave.
     */
@@ -410,10 +409,11 @@ class Master(
       var totalLoad: Int = 0
       this.grainMap.forEach((kg, vg) => {
         totalLoad += vg
-          .filter(grain => v.host.equals(grain.slave))
+          .filter(grain => v.uuid.equals(grain.slave))
           .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
+      logger.debug("Slave load " + k + ":" + v.totalLoad)
     }
   }
 
