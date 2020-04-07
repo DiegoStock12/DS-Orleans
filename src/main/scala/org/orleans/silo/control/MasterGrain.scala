@@ -18,6 +18,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
+import scala.reflect._
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)
@@ -117,7 +118,7 @@ class MasterGrain(_id: String, master: Master)
             master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
               GrainState.InMemory, 0) :: currentActivations)
             if (!master.grainClassMap.containsKey(request.id)) {
-              master.grainClassMap.put(request.id, (request.grainClass, request.grainType))
+              master.grainClassMap.put(request.id, GrainType(request.grainClass, request.grainType))
             }
           }
 
@@ -194,7 +195,7 @@ class MasterGrain(_id: String, master: Master)
         if (!master.grainMap.containsKey(resp.id)) {
           master.grainMap.put(resp.id, List(grainInfo))
           if (!master.grainClassMap.containsKey(resp.id)) {
-            master.grainClassMap.put(resp.id, (request.grainClass, request.grainType))
+            master.grainClassMap.put(resp.id, GrainType(request.grainClass, request.grainType))
           }
         }
         // Answer to the user
@@ -290,7 +291,7 @@ class MasterGrain(_id: String, master: Master)
           master.grainMap.put(request.id, GrainInfo(slaveInfo.uuid, response.address, response.port,
             GrainState.InMemory, 0) :: currentActivations)
           if (!master.grainClassMap.containsKey(request.id)) {
-            master.grainClassMap.put(request.id, (request.grainClass, request.grainType))
+            master.grainClassMap.put(request.id, GrainType(request.grainClass, request.grainType))
           }
 
         }
@@ -302,16 +303,26 @@ class MasterGrain(_id: String, master: Master)
     }
   }
 
-  //TODO Lots of code duplication for grain activation
   /**
    * Replicates the grain.
    * LoadMonitor triggers this method when replication is needed.
    * @param grainId Id of the grain to replicate
    */
   def triggerGrainReplication(grainId: String): Unit = {
+    val grainType = master.grainClassMap.get(grainId)
+    typedTriggerGrainReplication(grainId, grainType)
+  }
+
+
+  //TODO Lots of code duplication for grain activation
+  /**
+   * Replicates the grain of type T.
+   * @param grainId Id of the grain to replicate
+   */
+  private def typedTriggerGrainReplication[T <: Grain](grainId: String, grainType: GrainType[T]) : Unit = {
     logger.warn(s"Replication triggered for grain: ${grainId}")
-    val classtag: ClassTag[_ <: Grain] = master.grainClassMap.get(grainId)._1
-    val typetag: TypeTag[_ <: Grain] = master.grainClassMap.get(grainId)._2
+    val classtag: ClassTag[T] = grainType.classTag
+    val typetag: TypeTag[T] = grainType.typeTag
 
     val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.totalLoad < y.totalLoad) x else y)
     logger.warn("Selected slave on port:" + slaveInfo.tcpPort + " to activate grain.")
@@ -324,7 +335,7 @@ class MasterGrain(_id: String, master: Master)
       slaveRef = slaveGrainRefs.get(slaveInfo)
     }
 
-    val result = slaveRef ? ActiveGrainRequest(grainId, classtag, typetag)
+    val result = slaveRef ? ActiveGrainRequest[T](grainId, classtag, typetag)
     result.onComplete {
       case Success(response: ActiveGrainResponse) =>
         // Notify the sender of the GrainSearch where the grain is active now

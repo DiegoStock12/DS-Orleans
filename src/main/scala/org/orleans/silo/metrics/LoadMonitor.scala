@@ -12,7 +12,7 @@ class LoadMonitor(val grainMap: ConcurrentHashMap[String, List[GrainInfo]], val 
   var running: Boolean = true
   val FREQUENCY: Int = 1000
   // Final value to figure out
-  val REPLICATION_TRESHOLD = 10
+  val REPLICATION_TRESHOLD = 100
 
   override def run(): Unit = {
     logger.warn("Started load monitor on master.")

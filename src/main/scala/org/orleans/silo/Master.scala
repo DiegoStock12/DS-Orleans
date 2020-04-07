@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
-import org.orleans.silo.control.MasterGrain
+import org.orleans.silo.control.{GrainType, MasterGrain}
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.LoadMonitor
 import org.orleans.silo.utils.GrainState.GrainState
@@ -111,8 +111,8 @@ class Master(
   val grainMap: ConcurrentHashMap[String, List[GrainInfo]] =
     new ConcurrentHashMap[String, List[GrainInfo]]()
 
-  val grainClassMap: ConcurrentHashMap[String, (ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
-    new ConcurrentHashMap[String, (ClassTag[_ <: Grain], TypeTag[_ <: Grain])]()
+  val grainClassMap: ConcurrentHashMap[String, GrainType[_ <: Grain]] =
+    new ConcurrentHashMap[String, GrainType[_ <: Grain]]()
 
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
@@ -364,9 +364,8 @@ class Master(
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.warn(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
-    grainMap.forEach((k, v) => logger.warn(k + ":" + v))
-    grainClassMap.forEach((k, v) => logger.warn(k + ":" + v))
+    logger.debug(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
+    grainMap.forEach((k, v) => logger.debug(k + ":" + v))
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
@@ -405,7 +404,7 @@ class Master(
           .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
-      logger.warn("Slave load " + k + ":" + v.totalLoad)
+      logger.debug("Slave load " + k + ":" + v.totalLoad)
     }
   }
 
