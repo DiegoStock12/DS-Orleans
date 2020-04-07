@@ -74,7 +74,7 @@ object Main {
     master.start()
     slave.start()
     slave2.start()
-    slave3.start()
+//    slave3.start()
 
     Thread.sleep(1000 * 20)
 

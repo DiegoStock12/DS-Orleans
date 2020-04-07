@@ -111,6 +111,9 @@ class Master(
   val grainMap: ConcurrentHashMap[String, List[GrainInfo]] =
     new ConcurrentHashMap[String, List[GrainInfo]]()
 
+  val grainClassMap: ConcurrentHashMap[String, (ClassTag[_ <: Grain], TypeTag[_ <: Grain])] =
+    new ConcurrentHashMap[String, (ClassTag[_ <: Grain], TypeTag[_ <: Grain])]()
+
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
   val shortId: String = protocol.shortUUID(uuid)
@@ -152,10 +155,6 @@ class Master(
     // Starting the dispatchers
     logger.debug("Starting Main dispatcher.")
     startMainDispatcher()
-
-    // Starting load monitor
-    logger.debug("Starting Load Monitor.")
-    startLoadMonitor()
   }
 
   def startMainDispatcher() = {
@@ -169,14 +168,6 @@ class Master(
     mainDispatcherThread.setName(
       s"Master-${this.masterConfig.host}-MainDispatcher")
     mainDispatcherThread.start()
-  }
-
-  def startLoadMonitor() = {
-    val loadMonitor = new LoadMonitor(grainMap)
-    val loadMonitorThread: Thread = new Thread(loadMonitor)
-    loadMonitorThread.setName(
-      s"Master-${this.masterConfig.host}-LoadMonitor")
-    loadMonitorThread.start()
   }
 
   /**
@@ -373,8 +364,9 @@ class Master(
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.debug(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
-    grainMap.forEach((k, v) => logger.debug(k + ":" + v))
+    logger.warn(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
+    grainMap.forEach((k, v) => logger.warn(k + ":" + v))
+    grainClassMap.forEach((k, v) => logger.warn(k + ":" + v))
     packet.data.foreach { d =>
       d.split(":") match {
         case Array(id, load) => {
@@ -413,7 +405,7 @@ class Master(
           .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
-      logger.debug("Slave load " + k + ":" + v.totalLoad)
+      logger.warn("Slave load " + k + ":" + v.totalLoad)
     }
   }
 
