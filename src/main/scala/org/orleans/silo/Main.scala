@@ -51,7 +51,7 @@ object Main {
       .registerGrain[GreeterGrain]
       .setHost("localhost")
       .setTCPPort(1800)
-      .setUDPPort(1900)
+      .setUDPPort(1901)
       .setMasterHost("localhost")
       .setMasterTCPPort(1400)
       .setMasterUDPPort(1500)
@@ -75,6 +75,7 @@ object Main {
     master.start()
     slave.start()
     slave2.start()
+    slave3.start()
 
     Thread.sleep(1000 * 20)
 

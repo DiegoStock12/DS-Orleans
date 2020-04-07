@@ -175,7 +175,7 @@ class MasterGrain(_id: String, master: Master)
                                  sender: Sender): Unit = {
     // Now get the least loaded slave
     val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
-      if (x.totalLoad < y.totalLoad) x else y)
+      if (x.totalGrains < y.totalGrains) x else y)
 
     var slaveRef: GrainRef = null
     if (!slaveGrainRefs.containsKey(info.uuid)) {

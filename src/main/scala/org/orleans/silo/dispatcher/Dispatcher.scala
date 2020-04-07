@@ -91,6 +91,13 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int, val registryFacto
 
     val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(id, List())
     this.clientReceiver.mailboxIndex.put(id, mbox :: currentMailboxes)
+    if (registryFactory.isDefined) {
+      val registry: Registry =
+        registryFactory.get.getOrCreateRegistry(id)
+      registry.addActiveGrain()
+    }
+
+
     // Return the id of the grain
     id
   }
@@ -109,6 +116,11 @@ class Dispatcher[T <: Grain: ClassTag: TypeTag](val port: Int, val registryFacto
     this.grainMap.forEach((mbox, grain) => logger.info(s"Mailbox ${mbox.id} --> $grain"))
     val currentMailboxes: List[Mailbox] = this.clientReceiver.mailboxIndex.getOrDefault(grain._id, List())
     this.clientReceiver.mailboxIndex.put(grain._id, mailbox :: currentMailboxes)
+    if (registryFactory.isDefined) {
+      val registry: Registry =
+        registryFactory.get.getOrCreateRegistry(id)
+      registry.addActiveGrain()
+    }
   }
 
   /**

@@ -9,13 +9,11 @@ import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, Sl
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.control.{GrainType, MasterGrain}
 import org.orleans.silo.dispatcher.Dispatcher
-import org.orleans.silo.metrics.LoadMonitor
 import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.reflect.runtime.universe
 import scala.reflect.{ClassTag, _}
 import scala.reflect.runtime.universe._
 
@@ -366,9 +364,10 @@ class Master(
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
     logger.debug(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
     grainMap.forEach((k, v) => logger.debug(k + ":" + v))
+    var slaveActivations: Int = 0
     packet.data.foreach { d =>
       d.split(":") match {
-        case Array(id, load) => {
+        case Array(id, load, count) => {
           if (this.grainMap.containsKey(id)) {
             val grain: Option[GrainInfo] = this.grainMap
               .get(id)
@@ -376,6 +375,7 @@ class Master(
             if (grain.isDefined) {
               val reportingGrain: GrainInfo = grain.get
               reportingGrain.load = load.toInt
+              slaveActivations += count.toInt
               updateSlavesTotalLoad()
             } else {
               logger.debug(
@@ -388,6 +388,10 @@ class Master(
         }
         case _ => logger.warn("Couldn't parse packet with metrics.")
       }
+    }
+    val slave: Option[SlaveInfo] = this.slaves.get(packet.uuid)
+    if (slave.isDefined) {
+      slave.get.totalGrains = slaveActivations
     }
     logger.debug(s"${this.grainMap}")
   }

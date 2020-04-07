@@ -24,7 +24,8 @@ object ConnectionProtocol {
                        udpPort: Int,
                        tcpPort: Int,
                        lastHeartbeat: Long = -1,
-                       var totalLoad: Int = 0)
+                       var totalLoad: Int = 0,
+                       var totalGrains: Int = 0)
 
   // The interval for which heart beats are sent.
   val heartbeatInterval: Long = 1000

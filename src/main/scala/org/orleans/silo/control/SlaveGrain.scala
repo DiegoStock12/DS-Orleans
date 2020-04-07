@@ -121,6 +121,7 @@ class SlaveGrain(_id: String, slave: Slave)
 
       // Get the ID for the newly created grain
       // It is necessary to add the typeTag here because the dispacther type is eliminated by type erasure
+
       val id = dispatcher.addGrain(typeTag)
 
       // Add it to the grainMap

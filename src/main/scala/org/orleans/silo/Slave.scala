@@ -181,7 +181,7 @@ class Slave(
 
   def startMainDispatcher() = {
     // Start dispatcher for the general grain
-    val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort, Option(null))
+    val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort, Option(metricsRegistryFactory))
     val slaveGrainID = mainDispatcher.addSlaveGrain(this)
     //grainMap.put(slaveGrainID,classTag[SlaveGrain])
     dispatchers = mainDispatcher :: dispatchers
@@ -265,7 +265,6 @@ class Slave(
                                prepareMetricsData(data))
           packetManager.send(metrics, masterConfig.host, masterConfig.udpPort)
         }
-        // Update time
         oldTimeMetrics = newTime
       }
 
@@ -282,11 +281,13 @@ class Slave(
     * @param data
     * @return List of String representation of the load data.
     */
-  def prepareMetricsData(data: Map[String, Int]): List[String] = {
+  def prepareMetricsData(data: Map[String, (Int, Int)]): List[String] = {
     var prepared: List[String] = List()
-    for ((id, load) <- data) {
-      val s = id + ":" + load.toString
-      prepared = s :: prepared
+    for ((id, (load, count)) <- data) {
+      if (!id.equals(uuid)) {
+        val s = id + ":" + load.toString + ":" + count.toString
+        prepared = s :: prepared
+      }
     }
     prepared
   }

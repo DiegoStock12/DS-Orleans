@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class Registry() {
   var requestsReceived: AtomicInteger = new AtomicInteger(0)
   var requestsHandled: AtomicInteger = new AtomicInteger(0)
+  var grainsActivated: AtomicInteger = new AtomicInteger(0)
 
   /**
    * Increase the counter of requests received.
@@ -21,5 +22,12 @@ class Registry() {
    */
   def addRequestHandled(): Unit = {
     requestsHandled.addAndGet(1)
+  }
+
+  /**
+   * Increase the counter of active Grains.
+   */
+  def addActiveGrain(): Unit = {
+    grainsActivated.addAndGet(1)
   }
 }
