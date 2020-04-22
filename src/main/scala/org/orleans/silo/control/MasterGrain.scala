@@ -91,8 +91,7 @@ class MasterGrain(_id: String, master: Master)
       sender: Sender): Unit = {
     def activateGrain() = {
       // Since the grain is not active anywhere but , activate it on the slave with the least load
-      val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
-        if (x.grainCount.get() < y.grainCount.get()) x else y)
+      val slaveInfo: SlaveInfo = selectSlave()
 
       var slaveRef: GrainRef = null
       if (!slaveGrainRefs.containsKey(slaveInfo)) {
@@ -270,7 +269,7 @@ class MasterGrain(_id: String, master: Master)
    */
   private def processActivateGrain[T <: Grain : ClassTag : TypeTag](request: ActiveGrainRequest[T], sender: Sender): Unit = {
     // Since the grain is not active anywhere but , activate it on the slave with the least load
-    val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.grainCount.get() < y.grainCount.get()) x else y)
+    val slaveInfo: SlaveInfo = selectSlave()
     logger.warn("Selected slave on port:" + slaveInfo.tcpPort + " to activate grain.")
 
     var slaveRef: GrainRef = null
@@ -325,7 +324,7 @@ class MasterGrain(_id: String, master: Master)
     val classtag: ClassTag[T] = grainType.classTag
     val typetag: TypeTag[T] = grainType.typeTag
 
-    val slaveInfo: SlaveInfo = master.slaves.values.reduceLeft((x, y) => if (x.grainCount.get() < y.grainCount.get()) x else y)
+    val slaveInfo: SlaveInfo = selectSlave()
     logger.warn("Selected slave on port:" + slaveInfo.tcpPort + " to activate grain.")
 
     var slaveRef: GrainRef = null
@@ -352,5 +351,9 @@ class MasterGrain(_id: String, master: Master)
         //TODO either notify the sender that it has failed or try again (possibly on another slave)
         logger.error(throwable.toString)
     }
+  }
+
+  private def selectSlave(): SlaveInfo = {
+    master.slaves.values.reduceLeft((x, y) => if (x.grainCount.get() < y.grainCount.get()) x else y)
   }
 }
