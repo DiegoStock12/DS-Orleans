@@ -2,13 +2,10 @@ package org.orleans.silo
 
 import ch.qos.logback.classic.Level
 import org.orleans.developer.twitter.{Twitter, TwitterAccount}
-import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.Test.GreeterGrain
 import org.orleans.silo.storage.GrainDatabase
-import org.orleans.silo.utils.ServerConfig
+import org.orleans.silo.test.GreeterGrain
 
 import scala.concurrent.ExecutionContext
-import collection.JavaConverters._
 
 object Main {
 

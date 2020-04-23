@@ -1,8 +1,8 @@
 package org.orleans.developer.twitter
 import org.orleans.developer.twitter.TwitterMessages._
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.dispatcher.Sender
+import org.orleans.silo.services.grain.Grain
+import org.orleans.silo.services.grain.Grain.Receive
 
 class Twitter(id: String) extends Grain(id) {
 

@@ -1,24 +1,14 @@
 package org.orleans.developer.twitter
 
-import java.util
-import java.util.Collections
-
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.developer.twitter.TwitterMessages
 import org.orleans.developer.twitter.TwitterMessages._
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.dispatcher.Sender
-import collection.JavaConverters._
+import org.orleans.silo.services.grain.Grain
+import org.orleans.silo.services.grain.Grain.Receive
 
 class TwitterAccount(id: String) extends Grain(id) with LazyLogging {
 
   private var username: String = ""
-
-  //private var tweets: util.List[Tweet] =
-  //  Collections.synchronizedList(new util.ArrayList[Tweet]())
-  //private var followers: util.List[String] =
-  //  Collections.synchronizedList(new util.ArrayList[String]())
 
   private var tweets: List[Tweet] = List()
   private var followers: List[String] = List()

@@ -6,14 +6,12 @@ import ch.qos.logback.classic.Level
 import org.orleans.client.OrleansRuntime
 import org.orleans.developer.crypto.{Hasher, HasherRef}
 import org.orleans.developer.twitter.{Twitter, TwitterAccount, TwitterAcountRef, TwitterRef}
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import org.orleans.silo.Main.setLevel
-import org.orleans.silo.storage.{GrainDatabase, MongoGrainDatabase}
+import org.orleans.silo.storage.GrainDatabase
 import org.orleans.silo.{Master, Slave}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
-import collection.JavaConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Random, Success}

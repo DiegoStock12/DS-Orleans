@@ -1,11 +1,6 @@
 package org.orleans.silo.dispatcher
-import java.io.{
-  EOFException,
-  IOException,
-  ObjectInputStream,
-  ObjectOutputStream
-}
-import java.net.{ServerSocket, Socket, SocketException}
+import java.io.{ObjectInputStream, ObjectOutputStream}
+import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging

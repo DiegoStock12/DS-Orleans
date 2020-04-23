@@ -1,17 +1,15 @@
 package org.orleans.silo.dispatcher
-import java.io.{ObjectInputStream, ObjectOutputStream}
 import java.net.{ServerSocket, Socket, SocketException}
 import java.util
-import java.util.{Collections, Timer, TimerTask}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.{Collections, Timer, TimerTask}
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.metrics.RegistryFactory
+import org.orleans.silo.services.grain.Grain
 
+import scala.collection.JavaConverters._
 import scala.reflect._
-import org.orleans.silo.metrics.{Registry, RegistryFactory}
-
-import collection.JavaConverters._
 
 /** Cleans client threads that haven't been running for a while. **/
 class ClientCleanup(clientSockets: util.List[MessageReceiver])

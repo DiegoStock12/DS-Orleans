@@ -1,7 +1,7 @@
 package org.orleans.silo.storage
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 
 import scala.concurrent.Future
 import scala.reflect.ClassTag

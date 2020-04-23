@@ -1,14 +1,14 @@
-package org.orleans.silo.Test
+package org.orleans.silo.test
 
-import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.control.{ActiveGrainRequest, ActiveGrainResponse, CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
+import org.orleans.silo.control._
+import org.orleans.silo.services.grain.GrainRef
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Success}
-import scala.reflect.runtime.universe._
+import scala.concurrent.duration._
 import scala.reflect._
+import scala.reflect.runtime.universe._
+import scala.util.{Failure, Success}
 
 object Testing {
   // Just a test for the new Service client

@@ -1,10 +1,10 @@
 package org.orleans.silo.storage
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class StubDatabase extends GrainDatabase {
 

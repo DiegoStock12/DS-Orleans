@@ -1,20 +1,14 @@
 package org.orleans.client
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.{Grain, GrainRef, GrainReference}
-import org.orleans.silo.control.{
-  CreateGrainRequest,
-  CreateGrainResponse,
-  SearchGrainRequest,
-  SearchGrainResponse
-}
+import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, SearchGrainRequest, SearchGrainResponse}
+import org.orleans.silo.services.grain.{Grain, GrainRef, GrainReference}
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.reflect.{ClassTag, classTag}
 import scala.reflect.runtime.universe._
-import scala.util.{Failure, Success}
+import scala.reflect.{ClassTag, classTag}
 
 class OrleansRuntimeBuilder extends LazyLogging {
   private var _host: String = "localhost"

@@ -4,18 +4,18 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
 import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.control.{GrainType, MasterGrain}
 import org.orleans.silo.dispatcher.Dispatcher
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.reflect.{ClassTag, _}
 import scala.reflect.runtime.universe._
+import scala.reflect.{ClassTag, _}
 
 // Class that will serve as index for the grain map
 case class GrainInfo(slave: String,

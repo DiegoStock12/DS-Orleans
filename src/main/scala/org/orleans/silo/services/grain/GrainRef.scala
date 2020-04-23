@@ -1,22 +1,15 @@
-package org.orleans.silo.Services.Grain
+package org.orleans.silo.services.grain
 
-import java.io.{
-  EOFException,
-  IOException,
-  ObjectInputStream,
-  ObjectOutputStream
-}
+import java.io.{ObjectInputStream, ObjectOutputStream}
 import java.net.Socket
-import java.util
-import java.util.{Collections, UUID}
-import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap}
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.control.GrainPacket
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.collection.JavaConverters._
 import scala.concurrent.{Future, Promise}
-import collection.JavaConverters._
 object GrainRef extends LazyLogging {
   def apply(id: String, address: String, port: Int): GrainRef =
     new GrainRef(id, address, port)

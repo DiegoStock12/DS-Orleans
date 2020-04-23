@@ -1,16 +1,14 @@
 package org.orleans.silo.control
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.storage.GrainDatabase
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.reflect.ClassTag
+import scala.reflect.{ClassTag, _}
 import scala.reflect.runtime.universe._
-import scala.reflect._
 import scala.util.{Failure, Success}
 
 /**
