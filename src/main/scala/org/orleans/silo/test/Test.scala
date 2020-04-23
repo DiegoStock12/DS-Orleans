@@ -1,10 +1,6 @@
 package org.orleans.silo.test
 
-import java.util.concurrent.ConcurrentHashMap
-
-import org.orleans.silo.GrainInfo
 import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
-import org.orleans.silo.utils.GrainState
 
 object Test {
 

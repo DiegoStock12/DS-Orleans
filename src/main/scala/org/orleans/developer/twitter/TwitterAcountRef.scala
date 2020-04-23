@@ -1,11 +1,9 @@
 package org.orleans.developer.twitter
-import org.orleans.client.OrleansRuntime
 import org.orleans.developer.twitter.TwitterMessages._
-import org.orleans.silo.services.grain.{Grain, GrainRef, GrainReference}
+import org.orleans.silo.services.grain.GrainReference
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.util.Success
 
 class TwitterAcountRef extends GrainReference {
   def tweet(str: String) =

@@ -2,13 +2,11 @@ package org.orleans.client
 
 
 import java.security.MessageDigest
-import java.math.BigInteger
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.developer.crypto.{Hasher, HasherRef}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Random, Success}

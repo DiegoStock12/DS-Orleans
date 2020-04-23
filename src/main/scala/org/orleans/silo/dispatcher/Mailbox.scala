@@ -1,14 +1,13 @@
 package org.orleans.silo.dispatcher
 
 import java.io.ObjectOutputStream
-import java.net.Socket
 import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
+import org.orleans.silo.services.grain.Grain
 
 /**
   * Message that will be saved

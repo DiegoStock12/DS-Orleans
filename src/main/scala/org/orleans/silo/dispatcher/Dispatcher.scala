@@ -1,32 +1,17 @@
 package org.orleans.silo.dispatcher
 
-import java.io.{ObjectInputStream, ObjectOutputStream}
-import java.net.{ServerSocket, Socket, SocketException}
 import java.util.UUID
-import java.util.concurrent.{
-  ConcurrentHashMap,
-  ConcurrentMap,
-  Executors,
-  LinkedBlockingQueue,
-  ThreadPoolExecutor,
-  TimeUnit
-}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap, Executors, ThreadPoolExecutor}
 
-import scala.reflect._
-import scala.reflect.runtime.universe._
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.services.grain.Grain
-import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.storage.GrainDatabase
-
-import scala.concurrent.ExecutionContext.Implicits.global
-
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.util.{Failure, Success}
+import org.orleans.silo.{Master, Slave}
 
 import scala.concurrent.Future
+import scala.reflect._
+import scala.reflect.runtime.universe._
 
 /**
   * Dispatcher that will hold the messages for a certain type of grain

@@ -3,7 +3,6 @@ package org.orleans.silo.metrics
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.GrainInfo
 
 class RegistryFactory extends LazyLogging{
 

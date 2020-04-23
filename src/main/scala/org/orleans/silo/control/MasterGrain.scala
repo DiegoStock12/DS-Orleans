@@ -3,22 +3,19 @@ package org.orleans.silo.control
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.services.grain.Grain.Receive
-import org.orleans.silo.{GrainInfo, Master}
-import org.orleans.silo.services.grain.{Grain, GrainRef}
 import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
 import org.orleans.silo.dispatcher.Sender
 import org.orleans.silo.metrics.LoadMonitor
-import org.orleans.silo.utils.{Circular, GrainState}
+import org.orleans.silo.services.grain.Grain.Receive
+import org.orleans.silo.services.grain.{Grain, GrainRef}
 import org.orleans.silo.storage.GrainDatabase
-import org.orleans.silo.utils.GrainState
+import org.orleans.silo.utils.{Circular, GrainState}
 import org.orleans.silo.utils.GrainState.GrainState
+import org.orleans.silo.{GrainInfo, Master}
 
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
-import scala.reflect._
 import scala.util.{Failure, Success}
 
 class MasterGrain(_id: String, master: Master)

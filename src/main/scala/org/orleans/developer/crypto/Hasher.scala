@@ -2,11 +2,10 @@ package org.orleans.developer.crypto
 
 import java.security.MessageDigest
 
-import org.orleans.client.CryptoMain.getHash
 import org.orleans.developer.crypto.CryptoMessages.{FindMessage, MessageFound, MessageNotFound}
+import org.orleans.silo.dispatcher.Sender
 import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.services.grain.Grain.Receive
-import org.orleans.silo.dispatcher.Sender
 
 class Hasher(id: String) extends Grain(id){
   override def receive: Receive = {

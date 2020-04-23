@@ -1,11 +1,10 @@
 package org.orleans.developer.twitter
 import org.orleans.client.OrleansRuntime
 import org.orleans.developer.twitter.TwitterMessages._
-import org.orleans.silo.services.grain.{GrainRef, GrainReference}
+import org.orleans.silo.services.grain.GrainReference
 
-import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.Future
 
 class TwitterRef extends GrainReference {
   def createAccount(username: String): Future[TwitterAcountRef] = {

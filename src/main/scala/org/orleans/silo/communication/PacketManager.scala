@@ -1,16 +1,11 @@
 package org.orleans.silo.communication
 
-import java.net.{
-  DatagramPacket,
-  DatagramSocket,
-  InetSocketAddress,
-  SocketException
-}
+import java.net.{DatagramPacket, DatagramSocket, InetSocketAddress, SocketException}
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType}
+import org.orleans.silo.communication.ConnectionProtocol.Packet
 import org.orleans.silo.communication.{ConnectionProtocol => protocol}
 
 /**

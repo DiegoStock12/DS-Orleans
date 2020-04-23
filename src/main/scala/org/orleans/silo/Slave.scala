@@ -4,16 +4,12 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol._
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
 import org.orleans.silo.control.SlaveGrain
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.metrics.RegistryFactory
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
