@@ -1,6 +1,6 @@
-package org.orleans.silo.Test
+package org.orleans.silo.test
 
-import org.orleans.silo.Services.Grain.GrainRef
+import org.orleans.silo.services.grain.GrainRef
 import org.orleans.silo.control.{ActiveGrainRequest, ActiveGrainResponse, CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
 
 import scala.concurrent.Await

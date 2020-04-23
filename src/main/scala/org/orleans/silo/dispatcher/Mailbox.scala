@@ -7,7 +7,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
 
 /**

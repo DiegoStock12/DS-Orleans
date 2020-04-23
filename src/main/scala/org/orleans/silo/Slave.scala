@@ -4,7 +4,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.communication.ConnectionProtocol._
 import org.orleans.silo.communication.{
   PacketListener,

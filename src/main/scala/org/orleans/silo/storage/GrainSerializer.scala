@@ -2,7 +2,7 @@ package org.orleans.silo.storage
 
 import org.json4s.jackson.Serialization
 import org.json4s.{DefaultFormats, FieldSerializer, Formats}
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._

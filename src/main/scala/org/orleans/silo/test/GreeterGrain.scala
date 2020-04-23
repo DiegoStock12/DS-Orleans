@@ -1,7 +1,7 @@
-package org.orleans.silo.Test
+package org.orleans.silo.test
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.dispatcher.Sender
 
 import scala.reflect.ClassTag

@@ -1,7 +1,7 @@
 package org.orleans.client
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.{Grain, GrainRef, GrainReference}
+import org.orleans.silo.services.grain.{Grain, GrainRef, GrainReference}
 import org.orleans.silo.control.{
   CreateGrainRequest,
   CreateGrainResponse,

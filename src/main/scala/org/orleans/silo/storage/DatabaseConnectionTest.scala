@@ -1,8 +1,8 @@
 package org.orleans.silo.storage
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
+import org.orleans.silo.services.grain.Grain
+import org.orleans.silo.services.grain.Grain.Receive
 
 import scala.concurrent.duration._
 import scala.concurrent.Await

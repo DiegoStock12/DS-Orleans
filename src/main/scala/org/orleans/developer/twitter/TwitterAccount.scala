@@ -6,8 +6,8 @@ import java.util.Collections
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.developer.twitter.TwitterMessages
 import org.orleans.developer.twitter.TwitterMessages._
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
+import org.orleans.silo.services.grain.Grain
+import org.orleans.silo.services.grain.Grain.Receive
 import org.orleans.silo.dispatcher.Sender
 import collection.JavaConverters._
 

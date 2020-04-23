@@ -1,6 +1,6 @@
 package org.orleans.silo.control
 
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._

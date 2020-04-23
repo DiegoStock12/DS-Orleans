@@ -1,4 +1,4 @@
-package org.orleans.silo.Services
+package org.orleans.silo.services
 
 /**
  * Enumeration of all grpc services

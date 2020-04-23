@@ -1,8 +1,8 @@
 package org.orleans.silo.control
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.Services.Grain.Grain.Receive
+import org.orleans.silo.services.grain.Grain
+import org.orleans.silo.services.grain.Grain.Receive
 import org.orleans.silo.Slave
 import org.orleans.silo.dispatcher.{Dispatcher, Sender}
 import org.orleans.silo.storage.GrainDatabase

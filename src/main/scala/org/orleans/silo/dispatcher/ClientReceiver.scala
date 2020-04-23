@@ -6,7 +6,7 @@ import java.util.{Collections, Timer, TimerTask}
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 
 import scala.reflect._
 import org.orleans.silo.metrics.{Registry, RegistryFactory}

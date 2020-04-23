@@ -1,8 +1,8 @@
 package org.orleans.client
 import org.orleans.developer.twitter.TwitterMessages.{UserCreate, UserExists}
 import org.orleans.developer.twitter.{Twitter, TwitterAccount, TwitterAcountRef, TwitterRef}
-import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.Test.GreeterGrain
+import org.orleans.silo.services.grain.GrainRef
+import org.orleans.silo.test.GreeterGrain
 import org.orleans.silo.storage.GrainDatabase
 
 import scala.collection.mutable

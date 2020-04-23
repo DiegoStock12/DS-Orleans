@@ -15,7 +15,7 @@ import java.util.concurrent.{
 import scala.reflect._
 import scala.reflect.runtime.universe._
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain
+import org.orleans.silo.services.grain.Grain
 import org.orleans.silo.{Master, Slave}
 import org.orleans.silo.metrics.{Registry, RegistryFactory}
 import org.orleans.silo.storage.GrainDatabase

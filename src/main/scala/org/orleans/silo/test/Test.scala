@@ -1,4 +1,4 @@
-package org.orleans.silo.Test
+package org.orleans.silo.test
 
 import java.util.concurrent.ConcurrentHashMap
 

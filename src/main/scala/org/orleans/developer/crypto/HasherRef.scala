@@ -2,7 +2,7 @@ package org.orleans.developer.crypto
 
 import com.sun.net.httpserver.Authenticator.Success
 import org.orleans.developer.crypto.CryptoMessages.{FindMessage, MessageFound, MessageNotFound}
-import org.orleans.silo.Services.Grain.GrainReference
+import org.orleans.silo.services.grain.GrainReference
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

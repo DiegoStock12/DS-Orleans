@@ -1,5 +1,5 @@
 package org.orleans.developer.twitter
-import org.orleans.silo.Services.Grain.GrainRef
+import org.orleans.silo.services.grain.GrainRef
 import org.orleans.silo.control.GrainPacket
 
 object TwitterMessages {

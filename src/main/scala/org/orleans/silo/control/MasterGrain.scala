@@ -3,9 +3,9 @@ package org.orleans.silo.control
 import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
-import org.orleans.silo.Services.Grain.Grain.Receive
+import org.orleans.silo.services.grain.Grain.Receive
 import org.orleans.silo.{GrainInfo, Master}
-import org.orleans.silo.Services.Grain.{Grain, GrainRef}
+import org.orleans.silo.services.grain.{Grain, GrainRef}
 import org.orleans.silo.communication.ConnectionProtocol.SlaveInfo
 import org.orleans.silo.dispatcher.Sender
 import org.orleans.silo.metrics.LoadMonitor
