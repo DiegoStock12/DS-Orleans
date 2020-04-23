@@ -10,11 +10,6 @@ class TwitterAccount(id: String) extends Grain(id) with LazyLogging {
 
   private var username: String = ""
 
-  //private var tweets: util.List[Tweet] =
-  //  Collections.synchronizedList(new util.ArrayList[Tweet]())
-  //private var followers: util.List[String] =
-  //  Collections.synchronizedList(new util.ArrayList[String]())
-
   private var tweets: List[Tweet] = List()
   private var followers: List[String] = List()
 
