@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.GrainInfo
 
-object RegistryFactory extends LazyLogging{
+class RegistryFactory extends LazyLogging{
 
   // Active registries collecting metrics on different services.
   private val registries: ConcurrentHashMap[String, Registry] = new ConcurrentHashMap[String, Registry]()
@@ -50,10 +50,10 @@ object RegistryFactory extends LazyLogging{
    *
    * @return Map of loads per service.
    */
-  def getRegistryLoads(): Map[String, Int] = {
-    var loads: Map[String, Int] = Map()
+  def getRegistryLoads(): Map[String, (Int, Int)] = {
+    var loads: Map[String, (Int, Int)] = Map()
     this.registries.forEach((id, registry) => {
-      loads += (id ->  MetricsExtractor.getPendingRequests(registry))
+      loads += (id ->  (MetricsExtractor.getPendingRequests(registry), registry.grainsActivated.get()))
     })
     loads
   }

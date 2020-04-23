@@ -16,7 +16,7 @@ object Main {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
     GrainDatabase.setApplicationName("WouterTest")
-    GrainDatabase.disableDatabase = false
+    GrainDatabase.disableDatabase = true
 
     /**
       * A simple test-scenario is run here.
@@ -34,6 +34,7 @@ object Main {
     val slave = Slave()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
+      .registerGrain[GreeterGrain]
       .setHost("localhost")
       .setTCPPort(1600)
       .setUDPPort(1700)
@@ -47,9 +48,10 @@ object Main {
     val slave2 = Slave()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
+      .registerGrain[GreeterGrain]
       .setHost("localhost")
       .setTCPPort(1800)
-      .setUDPPort(19010)
+      .setUDPPort(1901)
       .setMasterHost("localhost")
       .setMasterTCPPort(1400)
       .setMasterUDPPort(1500)
@@ -60,6 +62,7 @@ object Main {
     val slave3 = Slave()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
+      .registerGrain[GreeterGrain]
       .setHost("localhost")
       .setTCPPort(2000)
       .setUDPPort(2100)
@@ -74,6 +77,9 @@ object Main {
     slave.start()
     slave2.start()
     slave3.start()
+
+    Thread.sleep(1000 * 20)
+
     //master.stop()
     //slave.stop()
   }

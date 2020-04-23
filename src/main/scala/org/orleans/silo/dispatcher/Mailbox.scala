@@ -2,6 +2,7 @@ package org.orleans.silo.dispatcher
 
 import java.io.ObjectOutputStream
 import java.net.Socket
+import java.util.UUID
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -43,12 +44,12 @@ class Sender(private[dispatcher] val stream: ObjectOutputStream, id: String)
   * These are executable so they can be run and the messages can be received
   * @param grain Grain that the message queue makes reference to
   */
-private[dispatcher] class Mailbox(val grain: Grain)
+private[dispatcher] class Mailbox(val grain: Grain, val registryFactory: Option[RegistryFactory])
     extends Runnable
     with LazyLogging {
   private[dispatcher] val inbox = new LinkedBlockingQueue[Message]
   // id of the mailbox
-  val id: String = grain._id
+  val id: String = UUID.randomUUID().toString
 
   // length of the message queue for that actor
   def length: Int = inbox.size()
@@ -85,8 +86,11 @@ private[dispatcher] class Mailbox(val grain: Grain)
       val msg: Message = inbox.poll()
       if (msg == null) return
       grain.receive((msg.msg, msg.sender))
-      val registry: Registry = RegistryFactory.getOrCreateRegistry(id)
-      registry.addRequestHandled()
+      if (registryFactory.isDefined) {
+        val registry: Registry =
+          registryFactory.get.getOrCreateRegistry(grain._id)
+        registry.addRequestHandled()
+      }
     }
     this.isRunning.set(false)
   }

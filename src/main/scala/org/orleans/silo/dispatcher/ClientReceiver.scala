@@ -46,8 +46,8 @@ class ClientCleanup(clientSockets: util.List[MessageReceiver])
   }
 }
 class ClientReceiver[T <: Grain: ClassTag](
-    val mailboxIndex: ConcurrentHashMap[String, Mailbox],
-    port: Int)
+    val mailboxIndex: ConcurrentHashMap[String, List[Mailbox]],
+    port: Int, val registryFactory: Option[RegistryFactory])
     extends Runnable
     with LazyLogging {
 
@@ -86,7 +86,7 @@ class ClientReceiver[T <: Grain: ClassTag](
       }
 
       // Create new client when
-      val messageReceiver = new MessageReceiver(mailboxIndex, clientSocket)
+      val messageReceiver = new MessageReceiver(mailboxIndex, registryFactory, clientSocket)
       val mRecvThread: Thread = new Thread(messageReceiver)
       logger.info(s"Message-Receiver started on ${clientSocket.getPort}.")
       mRecvThread.setName(

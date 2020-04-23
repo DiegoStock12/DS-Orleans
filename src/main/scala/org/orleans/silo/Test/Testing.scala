@@ -1,7 +1,7 @@
 package org.orleans.silo.Test
 
 import org.orleans.silo.Services.Grain.GrainRef
-import org.orleans.silo.control.{CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
+import org.orleans.silo.control.{ActiveGrainRequest, ActiveGrainResponse, CreateGrainRequest, CreateGrainResponse, DeleteGrainRequest, SearchGrainRequest, SearchGrainResponse}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -27,19 +27,19 @@ object Testing {
 //    val g = GrainRef("1234", "localhost", 1400)
 
     // Try to search for a grain that is deactivated
-    g ? SearchGrainRequest("29d95c86-b744-43cc-9de3-23a0e40c21c3", classtag, typetag) onComplete {
-      case Success(value: SearchGrainResponse) =>
-        println("Succesfully activate persistant grain by search!")
-        println(value)
-      case Success(value) =>
-        println(s"Unknown return value received: $value!")
-      case Failure(exception) => exception.printStackTrace()
-    }
-    Thread.sleep(1000)
+//    g ? SearchGrainRequest("962d24a3-5b31-41ba-aaeb-60ca4bd69b4d", classtag, typetag) onComplete {
+//      case Success(value: SearchGrainResponse) =>
+//        println("Succesfully activate persistant grain by search!")
+//        println(value)
+//      case Success(value) =>
+//        println(s"Unknown return value received: $value!")
+//      case Failure(exception) => exception.printStackTrace()
+//    }
+//    Thread.sleep(100000)
 
 
 
-    // Try to create a grain
+//     Try to create a grain
     println("Creating the grain!")
     val result = g ? CreateGrainRequest(classtag, typetag)
     val mappedResult = result.map {
@@ -52,8 +52,21 @@ object Testing {
     Await.result(mappedResult, 5 seconds)
 
     println(s"ID of the grain is $id")
-    println("Searching for the grain")
 
+    Thread.sleep(3000)
+//    Create another activation to test replication on the same slave (to test, you need to start only 1 slave)
+//    println("Try to activate other grain")
+    val resultActivate = g ? ActiveGrainRequest(id, classtag, typetag)
+    val mappedResultActivate = resultActivate.map {
+      case value: ActiveGrainResponse =>
+        println("Received ActiveGrainResponse!")
+        println(value)
+      case other => println(s"Something went wrong: $other")
+    }
+    Await.result(mappedResultActivate, 5 seconds)
+
+    Thread.sleep(5000)
+    println("Searching for the grain")
     var port : Int = 0
 
     // Search for a grain
@@ -67,17 +80,20 @@ object Testing {
 
     println("Sending hello to the greeter grain")
     val g2 : GrainRef = GrainRef(id, "localhost", port)
-    g2 ? "hello" onComplete{
-      case Success(value) => println(value)
-      case _ => "Not working"
+    for (i ← (1 to 1000)) {
+      g2 ! s"hello from $i"
     }
+//    g2 ? "hello" onComplete{
+//      case Success(value) => println(value)
+//      case _ => "Not working"
+//    }
 
     Thread.sleep(5000)
-
+//
     // Delete that grain
-    println("Trying to delete grain")
-    // Try to delete the grain
-    g ! DeleteGrainRequest(id)
+//    println("Trying to delete grain")
+//    // Try to delete the grain
+//    g ! DeleteGrainRequest(id)
 
   }
 

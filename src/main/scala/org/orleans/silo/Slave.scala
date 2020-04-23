@@ -126,6 +126,8 @@ class Slave(
   val grainMap: ConcurrentHashMap[String, ClassTag[_ <: Grain]] =
     new ConcurrentHashMap[String, ClassTag[_ <: Grain]]()
 
+  val metricsRegistryFactory: RegistryFactory = new RegistryFactory()
+
   // Metadata for the slave.
   val uuid: String = UUID.randomUUID().toString
   val shortId: String = protocol.shortUUID(uuid)
@@ -179,7 +181,7 @@ class Slave(
 
   def startMainDispatcher() = {
     // Start dispatcher for the general grain
-    val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort)
+    val mainDispatcher = new Dispatcher[SlaveGrain](this.slaveConfig.tcpPort, Option(metricsRegistryFactory))
     val slaveGrainID = mainDispatcher.addSlaveGrain(this)
     //grainMap.put(slaveGrainID,classTag[SlaveGrain])
     dispatchers = mainDispatcher :: dispatchers
@@ -197,7 +199,7 @@ class Slave(
       implicit val typetag: TypeTag[_ <: Grain] = x._2
 
       // Create a new dispatcher and run it in a new thread
-      val d = new Dispatcher(getFreePort)
+      val d = new Dispatcher(getFreePort, Option(metricsRegistryFactory))
       val dThread: Thread = new Thread(d)
       dThread.setName(s"Dispatcher-${d.port}-${classtag.runtimeClass.getName}")
       dThread.start()
@@ -254,7 +256,7 @@ class Slave(
       if (timeDiffMetrics >= protocol.metricsInterval) {
         logger.debug("Sending load metrics to master.")
 
-        val data = RegistryFactory.getRegistryLoads()
+        val data = metricsRegistryFactory.getRegistryLoads()
         if (data.nonEmpty) {
           // Send load metrics to the master.
           val metrics = Packet(PacketType.METRICS,
@@ -263,7 +265,6 @@ class Slave(
                                prepareMetricsData(data))
           packetManager.send(metrics, masterConfig.host, masterConfig.udpPort)
         }
-        // Update time
         oldTimeMetrics = newTime
       }
 
@@ -280,11 +281,13 @@ class Slave(
     * @param data
     * @return List of String representation of the load data.
     */
-  def prepareMetricsData(data: Map[String, Int]): List[String] = {
+  def prepareMetricsData(data: Map[String, (Int, Int)]): List[String] = {
     var prepared: List[String] = List()
-    for ((id, load) <- data) {
-      val s = id + ":" + load.toString
-      prepared = s :: prepared
+    for ((id, (load, count)) <- data) {
+      if (!id.equals(uuid)) {
+        val s = id + ":" + load.toString + ":" + count.toString
+        prepared = s :: prepared
+      }
     }
     prepared
   }

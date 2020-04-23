@@ -5,24 +5,15 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.typesafe.scalalogging.LazyLogging
 import org.orleans.silo.Services.Grain.Grain
-import org.orleans.silo.communication.ConnectionProtocol.{
-  Packet,
-  PacketType,
-  SlaveInfo
-}
-import org.orleans.silo.communication.{
-  PacketListener,
-  PacketManager,
-  ConnectionProtocol => protocol
-}
-import org.orleans.silo.control.MasterGrain
+import org.orleans.silo.communication.ConnectionProtocol.{Packet, PacketType, SlaveInfo}
+import org.orleans.silo.communication.{PacketListener, PacketManager, ConnectionProtocol => protocol}
+import org.orleans.silo.control.{GrainType, MasterGrain}
 import org.orleans.silo.dispatcher.Dispatcher
 import org.orleans.silo.utils.GrainState.GrainState
 import org.orleans.silo.utils.ServerConfig
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.reflect.runtime.universe
 import scala.reflect.{ClassTag, _}
 import scala.reflect.runtime.universe._
 
@@ -31,7 +22,8 @@ case class GrainInfo(slave: String,
                      address: String,
                      port: Int,
                      var state: GrainState,
-                     var load: Int)
+                     var load: Int
+                    )
 
 object Master {
   def apply(): MasterBuilder = new MasterBuilder()
@@ -117,6 +109,9 @@ class Master(
   val grainMap: ConcurrentHashMap[String, List[GrainInfo]] =
     new ConcurrentHashMap[String, List[GrainInfo]]()
 
+  val grainClassMap: ConcurrentHashMap[String, GrainType[_ <: Grain]] =
+    new ConcurrentHashMap[String, GrainType[_ <: Grain]]()
+
   // Metadata for the master.
   val uuid: String = UUID.randomUUID().toString
   val shortId: String = protocol.shortUUID(uuid)
@@ -162,7 +157,7 @@ class Master(
 
   def startMainDispatcher() = {
     // Start dispatcher for the general grain
-    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort)
+    val mainDispatcher = new Dispatcher[MasterGrain](this.masterConfig.tcpPort, Option(null))
     mainDispatcher.addMasterGrain(this)
     dispatchers = mainDispatcher :: dispatchers
 
@@ -201,6 +196,8 @@ class Master(
       // Check if it is time to send heartbeats again.
       if (timeDiff >= protocol.heartbeatInterval) {
         logger.debug("Sending heartbeats to slaves.")
+
+
 
         // Send its heartbeat to all slaves.
         val heartbeat = Packet(PacketType.HEARTBEAT, this.uuid, newTime)
@@ -285,7 +282,7 @@ class Master(
     *
     * @param packet The handshake packet.
     * @param host   The host receiving from.
-    * @param port   The port receiving from.
+    * @param udpPort   The port receiving from.
     */
   def processHandshake(packet: Packet, host: String, udpPort: Int): Unit = {
     // If slave is already in the cluster, we will not send another welcome packet. Its probably already received.
@@ -367,17 +364,20 @@ class Master(
     * @param port   The port receiving from.
     */
   def processLoadData(packet: Packet, host: String, port: Int): Unit = {
-    logger.debug(s"Processing load data: ${packet.data}")
+    logger.debug(s"Processing load data: ${packet.data} from slave ${packet.uuid}")
+    grainMap.forEach((k, v) => logger.debug(k + ":" + v))
+    var slaveActivations: Int = 0
     packet.data.foreach { d =>
       d.split(":") match {
-        case Array(id, load) => {
+        case Array(id, load, count) => {
           if (this.grainMap.containsKey(id)) {
             val grain: Option[GrainInfo] = this.grainMap
               .get(id)
-              .find(x => x.address.equals(host) && x.port.equals(port))
+              .find(x => x.slave.equals(packet.uuid))
             if (grain.isDefined) {
               val reportingGrain: GrainInfo = grain.get
               reportingGrain.load = load.toInt
+              slaveActivations += count.toInt
               updateSlavesTotalLoad()
             } else {
               logger.debug(
@@ -388,9 +388,13 @@ class Master(
               "Slave reports about grain that master doesn't know about.")
           }
         }
-        case _ => logger.warn("Couldn't parse packet with metrics.")
+        case _ => logger.debug("Couldn't parse packet with metrics.")
       }
     }
+    val slave: Option[SlaveInfo] = this.slaves.get(packet.uuid)
+//    if (slave.isDefined) {
+//      slave.get.totalGrains = slaveActivations
+//    }
     logger.debug(s"${this.grainMap}")
   }
 
@@ -402,10 +406,11 @@ class Master(
       var totalLoad: Int = 0
       this.grainMap.forEach((kg, vg) => {
         totalLoad += vg
-          .filter(grain => v.host.equals(grain.slave))
+          .filter(grain => v.uuid.equals(grain.slave))
           .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
+      logger.debug("Slave grain count " + k + ":" + v.grainCount)
     }
   }
 
