@@ -62,6 +62,7 @@ object Main {
     val slave3 = Slave()
       .registerGrain[Twitter]
       .registerGrain[TwitterAccount]
+      .registerGrain[GreeterGrain]
       .setHost("localhost")
       .setTCPPort(2000)
       .setUDPPort(2100)
@@ -74,8 +75,8 @@ object Main {
 
     master.start()
     slave.start()
-//    slave2.start()
-//    slave3.start()
+    slave2.start()
+    slave3.start()
 
     Thread.sleep(1000 * 20)
 

@@ -410,7 +410,7 @@ class Master(
           .foldLeft(0)((acc, b) => acc + b.load)
       })
       v.totalLoad = totalLoad
-      logger.debug("Slave load " + k + ":" + v.totalLoad)
+      logger.debug("Slave grain count " + k + ":" + v.grainCount)
     }
   }
 

@@ -1,5 +1,6 @@
 package org.orleans.silo.communication
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
   * Stores all (meta-)data for the communication protocol.
@@ -25,7 +26,8 @@ object ConnectionProtocol {
                        tcpPort: Int,
                        lastHeartbeat: Long = -1,
                        var totalLoad: Int = 0,
-                       var totalGrains: Int = 0)
+                       var grainCount:AtomicInteger = new AtomicInteger(0),
+                      )
 
   // The interval for which heart beats are sent.
   val heartbeatInterval: Long = 1000
