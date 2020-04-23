@@ -177,6 +177,9 @@ class MasterGrain(_id: String, master: Master)
     val info: SlaveInfo = master.slaves.values.reduceLeft((x, y) =>
       if (x.totalGrains < y.totalGrains) x else y)
 
+    info.totalGrains = info.totalGrains + 1
+    //logger.info(s"total grains ${info.tcpPort} ${info.totalGrains}")
+
     var slaveRef: GrainRef = null
     if (!slaveGrainRefs.containsKey(info.uuid)) {
       slaveRef = GrainRef(info.uuid, info.host, info.tcpPort)

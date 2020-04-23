@@ -16,7 +16,7 @@ object Main {
     setLevel(Level.INFO) // The debug level might give a little bit too much info.
 
     GrainDatabase.setApplicationName("WouterTest")
-    GrainDatabase.disableDatabase = false
+    GrainDatabase.disableDatabase = true
 
     /**
       * A simple test-scenario is run here.
@@ -74,8 +74,8 @@ object Main {
 
     master.start()
     slave.start()
-    slave2.start()
-    slave3.start()
+//    slave2.start()
+//    slave3.start()
 
     Thread.sleep(1000 * 20)
 

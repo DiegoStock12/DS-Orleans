@@ -197,6 +197,8 @@ class Master(
       if (timeDiff >= protocol.heartbeatInterval) {
         logger.debug("Sending heartbeats to slaves.")
 
+
+
         // Send its heartbeat to all slaves.
         val heartbeat = Packet(PacketType.HEARTBEAT, this.uuid, newTime)
         notifyAllSlaves(heartbeat)
@@ -386,13 +388,13 @@ class Master(
               "Slave reports about grain that master doesn't know about.")
           }
         }
-        case _ => logger.warn("Couldn't parse packet with metrics.")
+        case _ => logger.debug("Couldn't parse packet with metrics.")
       }
     }
     val slave: Option[SlaveInfo] = this.slaves.get(packet.uuid)
-    if (slave.isDefined) {
-      slave.get.totalGrains = slaveActivations
-    }
+//    if (slave.isDefined) {
+//      slave.get.totalGrains = slaveActivations
+//    }
     logger.debug(s"${this.grainMap}")
   }
 
