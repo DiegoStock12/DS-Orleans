@@ -1,4 +1,4 @@
-package org.orleans.silo.Services.Grain
+package org.orleans.silo.services.grain
 
 import java.io.{
   EOFException,
